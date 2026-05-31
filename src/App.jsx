@@ -447,7 +447,7 @@ export default function App() {
       <header>
         <div className="logo">🎾</div>
         <div className="header-text">
-          <div className="site-name">{t.appName}</div>
+          <div className="site-name"><span style={{color:"var(--primary)"}}>Wester</span><span style={{color:"var(--court-green)"}}>park</span></div>
           <div className="site-sub">{t.appSub}</div>
         </div>
         <div className="header-right">
@@ -469,9 +469,7 @@ export default function App() {
               <CourtTimer key={court.id} court={court} t={t}/>
             ) : (
               <div key={court.id} className="court-card free">
-                <div className="court-header">
-                  <span className="court-label">{court.id === 1 ? (t.court1Name || "LEFT COURT") : (t.court2Name || "RIGHT COURT")}</span>
-                </div>
+                <div className="court-name-centered">{court.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
                 <div className="free-label">{t.free}</div>
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
               </div>
@@ -616,8 +614,8 @@ const styles = `
   .lang-toggle button { background: none; border: none; color: var(--text-faint); font-family: 'DM Mono', monospace; font-size: 11px; padding: 3px 8px; border-radius: 16px; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; }
   .lang-toggle button.active { background: var(--primary-glow); color: var(--primary); }
 
-  .live-dot { display: flex; align-items: center; gap: 5px; font-size: 10px; letter-spacing: 2px; color: var(--green-free); font-family: 'DM Mono', monospace; }
-  .live-dot span { width: 6px; height: 6px; background: var(--green-free); border-radius: 50%; animation: pulse 1.5s infinite; }
+  .live-dot { display: flex; align-items: center; gap: 5px; font-size: 10px; letter-spacing: 2px; color: var(--court-green); font-family: 'DM Mono', monospace; background: rgba(128,164,120,0.1); padding: 4px 8px; border-radius: 20px; border: 1px solid rgba(128,164,120,0.2); }
+  .live-dot span { width: 6px; height: 6px; background: var(--court-green); border-radius: 50%; animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
 
   .loading { text-align: center; padding: 20px; color: var(--text-faint); font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 2px; position: relative; z-index: 1; }
@@ -631,22 +629,33 @@ const styles = `
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: 16px; padding: 16px 14px;
-    transition: border-color 0.3s;
+    transition: all 0.3s;
+    position: relative; overflow: hidden;
   }
-  .court-card.normal  { border-color: rgba(192,57,43,0.3); }
+  .court-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--primary); opacity: 0.4;
+    border-radius: 16px 16px 0 0;
+  }
+  .court-card.normal  { border-color: rgba(180,100,99,0.35); }
   .court-card.warning { border-color: var(--warning); background: rgba(255,170,0,0.05); }
+  .court-card.warning::before { background: var(--warning); opacity: 0.6; }
   .court-card.over    { border-color: var(--danger); background: rgba(255,68,68,0.05); animation: redpulse 1.5s infinite; }
-  .court-card.free    { border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.04); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 160px; gap: 12px; }
+  .court-card.over::before { background: var(--danger); opacity: 0.8; }
+  .court-card.free    { border-color: rgba(128,164,120,0.4); background: rgba(128,164,120,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 160px; gap: 10px; }
+  .court-card.free::before { background: var(--court-green); opacity: 0.5; }
+  .court-name-centered { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; color: var(--text-faint); text-align: center; text-transform: uppercase; }
   @keyframes redpulse { 0%,100%{border-color:rgba(255,68,68,0.5)} 50%{border-color:rgba(255,68,68,0.9)} }
 
-  .court-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; width: 100%; }
+  .court-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; width: 100%; }
   .court-label  { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; color: var(--text-faint); }
 
   .court-badge { font-size: 8px; letter-spacing: 1px; padding: 2px 6px; border-radius: 20px; font-family: 'DM Mono', monospace; }
   .court-badge.singles { background: rgba(192,57,43,0.15); color: var(--primary); }
   .court-badge.doubles { background: rgba(96,165,250,0.15); color: #60a5fa; }
 
-  .court-players { font-size: 12px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.3; min-height: 30px; }
+  .court-players { font-size: 13px; color: var(--text); margin-bottom: 10px; line-height: 1.3; min-height: 30px; font-weight: 500; }
   .timer-ring-container { display: flex; justify-content: center; }
 
   .overtime-badge { text-align: center; font-size: 10px; color: var(--danger); font-family: 'DM Mono', monospace; letter-spacing: 1px; margin-top: 6px; animation: blink 1s infinite; }
