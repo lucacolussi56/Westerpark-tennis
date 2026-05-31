@@ -3,7 +3,7 @@ import {
   collection, doc, onSnapshot, setDoc, deleteDoc,
   updateDoc, query, orderBy, getDocs, addDoc
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { db, analytics, logEvent } from "./firebase";
 import { translations } from "./i18n";
 
 const WESTERPARK_COORDS = { lat: 52.387583, lng: 4.875667 };
@@ -125,6 +125,7 @@ function FeedbackModal({ t, onClose }) {
     });
     setSent(true);
     setSending(false);
+    logEvent(analytics, "feedback_submitted", { rating });
   }
 
   return (
@@ -219,6 +220,9 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
 
+  // Track page view
+  useEffect(() => { logEvent(analytics, "page_view"); }, []);
+
   function changeLang(l) {
     setLang(l);
     localStorage.setItem("lang", l);
@@ -292,6 +296,7 @@ export default function App() {
     setScreen("home");
     setGeoStatus("idle");
     notify(t.notifJoined);
+    logEvent(analytics, "join_queue", { type: form.type });
     localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
   }
 
@@ -313,6 +318,7 @@ export default function App() {
     setMyPlaying(playing);
     localStorage.removeItem("myQueueEntry");
     localStorage.setItem("myPlaying", JSON.stringify(playing));
+    logEvent(analytics, "start_playing", { court: courtId, type: myEntry.type });
     setScreen("playing");
   }
 
@@ -321,6 +327,7 @@ export default function App() {
     setMyPlaying(null);
     localStorage.removeItem("myPlaying");
     setScreen("home");
+    logEvent(analytics, "done_playing", { court: courtId });
     notify(t.notifDone);
   }
 
