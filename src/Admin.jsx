@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import {
   collection, onSnapshot, query, orderBy,
-  deleteDoc, doc, updateDoc, where
+  deleteDoc, doc, updateDoc, setDoc, where
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-const ADMIN_PASSWORD = "LUCA";
+// ─── CHANGE THIS PASSWORD ─────────────────────────────────────────────────────
+const ADMIN_PASSWORD = "YOURPASSWORDHERE";
+// ─────────────────────────────────────────────────────────────────────────────
 
 function StarDisplay({ rating }) {
   return (
@@ -14,6 +16,46 @@ function StarDisplay({ rating }) {
         <span key={s} style={{color: s <= rating ? "#ffcc00" : "rgba(255,255,255,0.15)"}}>★</span>
       ))}
     </span>
+  );
+}
+
+function AddToQueueForm({ db, queue }) {
+  const [name, setName] = useState("");
+  const [type, setType] = useState("singles");
+  const [adding, setAdding] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  async function addToQueue() {
+    if (!name.trim()) return;
+    setAdding(true);
+    const id = `admin_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
+    const lastJoinedAt = queue.length > 0 ? Math.max(...queue.map(q => q.joinedAt)) : Date.now();
+    await setDoc(doc(db, "queue", id), {
+      name: name.trim(), type, joinedAt: lastJoinedAt + 1
+    });
+    setName(""); setAdding(false); setOpen(false);
+  }
+
+  if (!open) return (
+    <button className="a-add-queue-btn" onClick={() => setOpen(true)}>+ Add to queue</button>
+  );
+
+  return (
+    <div className="a-add-queue-form">
+      <input value={name} onChange={e => setName(e.target.value)}
+        placeholder="Player name" autoFocus
+        style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 12px",color:"white",fontSize:14,outline:"none"}}
+      />
+      <select value={type} onChange={e => setType(e.target.value)}
+        style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 10px",color:"white",fontSize:13,outline:"none"}}>
+        <option value="singles">Singles</option>
+        <option value="doubles">Doubles</option>
+      </select>
+      <button className="a-end-session-btn" onClick={addToQueue} disabled={!name.trim() || adding}>
+        {adding ? "..." : "Add"}
+      </button>
+      <button className="a-delete-btn" onClick={() => setOpen(false)}>✕</button>
+    </div>
   );
 }
 
@@ -406,23 +448,50 @@ export default function Admin() {
                 )}
               </div>
               {court.status === "occupied" && (
-                <button className="a-free-btn" onClick={() => freeCourt(court.id)}>
-                  Free court
-                </button>
+                <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end"}}>
+                  <button className="a-end-session-btn" onClick={async () => {
+                    if (window.confirm(`End session on ${court.id === 1 ? "Left Court" : "Right Court"}?`)) {
+                      await freeCourt(court.id);
+                    }
+                  }}>
+                    ✓ End session
+                  </button>
+                  <div style={{fontSize:10,color:"var(--text-faint)",textAlign:"right",fontFamily:"'DM Mono',monospace"}}>admin only</div>
+                </div>
               )}
             </div>
           ))}
 
           <h3 className="a-section-title" style={{marginTop:24}}>Queue ({queue.length})</h3>
+
+          {/* Add to queue form */}
+          <AddToQueueForm db={db} queue={queue} />
+
           {queue.length === 0 && <div className="a-empty">Queue is empty</div>}
-          {queue.map(item => (
+          {queue.map((item, idx) => (
             <div key={item.id} className="a-queue-item">
               <div className="a-queue-pos">{item.position}</div>
               <div className="a-queue-info">
                 <div className="a-queue-name">{item.name}</div>
                 <div className="a-queue-meta">{item.type} · {Math.floor((Date.now() - item.joinedAt) / 60000)} min ago</div>
               </div>
-              <button className="a-delete-btn" onClick={() => removeFromQueue(item.id)}>✕</button>
+              <div style={{display:"flex",gap:4}}>
+                {idx > 0 && (
+                  <button className="a-move-btn" onClick={async () => {
+                    const prev = queue[idx-1];
+                    await updateDoc(doc(db, "queue", item.id), { joinedAt: prev.joinedAt - 1 });
+                    await updateDoc(doc(db, "queue", prev.id), { joinedAt: item.joinedAt });
+                  }}>↑</button>
+                )}
+                {idx < queue.length-1 && (
+                  <button className="a-move-btn" onClick={async () => {
+                    const next = queue[idx+1];
+                    await updateDoc(doc(db, "queue", item.id), { joinedAt: next.joinedAt + 1 });
+                    await updateDoc(doc(db, "queue", next.id), { joinedAt: item.joinedAt });
+                  }}>↓</button>
+                )}
+                <button className="a-delete-btn" onClick={() => removeFromQueue(item.id)}>✕</button>
+              </div>
             </div>
           ))}
         </div>
@@ -540,6 +609,15 @@ const adminStyles = `
   .a-court-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
   .a-court-status { font-size: 13px; color: var(--text-muted); }
   .a-court-time { font-size: 11px; color: var(--text-faint); margin-top: 4px; font-family: 'DM Mono', monospace; }
+  .a-add-queue-btn { width:100%; background:rgba(255,255,255,0.04); border:1px dashed rgba(255,255,255,0.15); color:var(--text-faint); border-radius:10px; padding:8px; font-size:12px; cursor:pointer; margin-bottom:10px; font-family:'Archivo',sans-serif; }
+  .a-add-queue-form { display:flex; gap:6px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  .a-move-btn { background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:var(--text-muted); border-radius:6px; padding:4px 7px; font-size:12px; cursor:pointer; }
+  .a-end-session-btn {
+    background: rgba(180,100,99,0.15); border: 1px solid var(--primary);
+    color: var(--primary); border-radius: 8px; padding: 8px 14px;
+    font-size: 12px; cursor: pointer; font-family: 'Archivo Black', sans-serif;
+    white-space: nowrap;
+  }
   .a-free-btn {
     background: rgba(128,164,120,0.15); border: 1px solid rgba(128,164,120,0.3);
     color: var(--court-green); border-radius: 8px; padding: 6px 12px;

@@ -472,12 +472,18 @@ export default function App() {
               await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
                 status: "occupied", players: "Unknown player", type: form.type, startedAt: Date.now()
               });
-              const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-              await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() - 1 });
-              setMyEntryId(id);
-              localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
+              // Only add to queue if not already in queue
+              if (!myEntryId) {
+                const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+                await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() - 1 });
+                setMyEntryId(id);
+                localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
+                notify(t.notifJoined);
+              } else {
+                notify("✅ Court marked as occupied!");
+              }
               setSomeonePlayCourt(null);
-              notify(t.notifJoined);
+              setGeoStatus("idle");
             }}>
               {t.someoneIsPlayingConfirm || "Mark as occupied & join queue →"}
             </button>
@@ -544,7 +550,7 @@ export default function App() {
                 <div className="court-name-centered">{court.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
                 <div className="free-label">{t.free}</div>
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
-                {!isMyTurn && !myEntryId && <button className="someone-btn" onClick={() => setSomeonePlayCourt(court.id)}>{t.someoneIsPlaying || "Someone is playing →"}</button>}
+                {!isMyTurn && <button className="someone-btn" onClick={() => { checkGeo(() => setSomeonePlayCourt(court.id)); }}>{t.someoneIsPlaying || "Someone is playing →"}</button>}
               </div>
             )
           )}
