@@ -258,6 +258,7 @@ export default function App() {
     singlesDuration: 45,
     doublesDuration: 60,
     overtimeClaimMin: 5,
+    queueClaimMin: 10,
     geoRadius: 250,
     maintenance: false,
     maintenanceMsg: "",
@@ -283,6 +284,7 @@ export default function App() {
           singlesDuration: s.singlesDuration || 45,
           doublesDuration: s.doublesDuration || 60,
           overtimeClaimMin: s.overtimeClaimMin || 5,
+          queueClaimMin: s.queueClaimMin || 10,
           geoRadius: s.geoRadius || 250,
           maintenance: s.maintenance || false,
           maintenanceMsg: s.maintenanceMsg || "",
@@ -390,6 +392,7 @@ export default function App() {
 
   async function joinQueue() {
     if (!form.name.trim()) return;
+    if (myEntryId) return; // Already in queue
     const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
     await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() });
     setMyEntryId(id);
