@@ -37,8 +37,8 @@ function useTimer(startedAt, limitMinutes) {
   return { elapsedMin, elapsedSec, remainMin, remainSec, overTime, pct };
 }
 
-function CourtTimer({ court, t }) {
-  const limit = court.type === "singles" ? 45 : 60;
+function CourtTimer({ court, t, singlesDuration, doublesDuration }) {
+  const limit = court.type === "singles" ? (singlesDuration || 45) : (doublesDuration || 60);
   const { elapsedMin, elapsedSec, remainMin, remainSec, overTime, pct } = useTimer(court.startedAt, limit);
   const circumference = 2 * Math.PI * 38;
   const strokeDash = circumference * (1 - pct / 100);
@@ -186,9 +186,9 @@ function FeedbackModal({ t, onClose }) {
   );
 }
 
-function PlayingScreen({ myPlaying, onDone, t }) {
+function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration }) {
   const [confirmDone, setConfirmDone] = useState(false);
-  const limit = myPlaying.type === "singles" ? 45 : 60;
+  const limit = myPlaying.type === "singles" ? (singlesDuration || 45) : (doublesDuration || 60);
   const { elapsedMin, elapsedSec, remainMin, remainSec, overTime, pct } = useTimer(myPlaying.startedAt, limit);
   const circumference = 2 * Math.PI * 70;
   const strokeDash = circumference * (1 - pct / 100);
@@ -254,6 +254,15 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [geoSettings, setGeoSettings] = useState(null);
   const [testMode, setTestMode] = useState(false);
+  const [appSettings, setAppSettings] = useState({
+    singlesDuration: 45,
+    doublesDuration: 60,
+    overtimeClaimMin: 5,
+    geoRadius: 250,
+    maintenance: false,
+    maintenanceMsg: "",
+    welcomeMsg: "",
+  });
   const [showFeedback, setShowFeedback] = useState(false);
   const [showFairPlay, setShowFairPlay] = useState(false);
   const [showConfirmLeave, setShowConfirmLeave] = useState(false);
@@ -263,13 +272,24 @@ export default function App() {
   // Track page view
   useEffect(() => { logEvent(analytics, "page_view"); }, []);
 
-  // Load geo settings from Firebase
+  // Load all settings from Firebase
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "geo"), snap => {
-      const isTest = snap.exists() && snap.data().testMode === true;
-      setTestMode(isTest);
+      if (snap.exists()) {
+        const s = snap.data();
+        setTestMode(s.testMode === true);
+        MAX_DISTANCE_METERS = s.geoRadius || 250;
+        setAppSettings({
+          singlesDuration: s.singlesDuration || 45,
+          doublesDuration: s.doublesDuration || 60,
+          overtimeClaimMin: s.overtimeClaimMin || 5,
+          geoRadius: s.geoRadius || 250,
+          maintenance: s.maintenance || false,
+          maintenanceMsg: s.maintenanceMsg || "",
+          welcomeMsg: s.welcomeMsg || "",
+        });
+      }
       GEO_COORDS = { lat: 52.387583, lng: 4.875667 };
-      MAX_DISTANCE_METERS = 250;
     });
     return unsub;
   }, []);
@@ -490,7 +510,21 @@ export default function App() {
     }
   }, [queue, loading]);
 
-  if (screen === "playing" && myPlaying) return <PlayingScreen myPlaying={myPlaying} onDone={markDone} t={t}/>;
+  if (appSettings.maintenance) return (
+    <div className="app" style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh"}}>
+      <div className="bg-court"/>
+      <style>{styles}</style>
+      <div style={{textAlign:"center",padding:32}}>
+        <div style={{fontSize:48,marginBottom:16}}>🚧</div>
+        <div style={{fontFamily:"'Archivo Black',sans-serif",fontSize:22,color:"var(--text)",marginBottom:12}}>Under maintenance</div>
+        <div style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.6,maxWidth:280}}>
+          {appSettings.maintenanceMsg || "The app is temporarily unavailable. Back soon!"}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (screen === "playing" && myPlaying) return <PlayingScreen myPlaying={myPlaying} onDone={markDone} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>;
 
   const myEntry = queue.find(q => q.id === myEntryId);
   const freeCourts = courts.filter(c => c.status === "free");
@@ -501,6 +535,9 @@ export default function App() {
       <div className="bg-court"/>
       <style>{styles}</style>
       {notification && <div className="notification">{notification}</div>}
+      {appSettings.welcomeMsg && (
+        <div className="welcome-banner">📢 {appSettings.welcomeMsg}</div>
+      )}
       {showAbout && <AboutModal t={t} onClose={() => setShowAbout(false)}/>}
       {showFeedback && <FeedbackModal t={t} onClose={() => setShowFeedback(false)}/>}
       {showFairPlay && <FairPlayModal t={t} onClose={() => setShowFairPlay(false)}/>}
@@ -597,14 +634,14 @@ export default function App() {
           {courts.map(court =>
             court.status === "occupied" ? (
               <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
-                <CourtTimer key={court.id} court={court} t={t}/>
+                <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
                 {(() => {
                   const limit = court.type === "singles" ? 45 : 60;
                   const elapsedMin = (Date.now() - court.startedAt) / 60000;
                   const overtimeMin = elapsedMin - limit;
                   const myEntry = queue.find(q => q.id === myEntryId);
                   const isFirstInQueue = myEntry?.position === 1;
-                  if (isFirstInQueue && overtimeMin >= OVERTIME_CLAIM_MIN) {
+                  if (isFirstInQueue && overtimeMin >= (appSettings.overtimeClaimMin || OVERTIME_CLAIM_MIN)) {
                     return (
                       <div className="claim-banner">
                         <div className="claim-banner-text">🎾 {t.claimCourtBanner || "Looks like the court is free — did the previous player forget to check out?"}</div>
@@ -772,6 +809,7 @@ const styles = `
   .live-dot span { width: 6px; height: 6px; background: var(--court-green); border-radius: 50%; animation: pulse 1.5s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
 
+  .welcome-banner { background: rgba(180,100,99,0.12); border-bottom: 1px solid rgba(180,100,99,0.25); padding: 10px 16px; font-size: 13px; color: var(--text-muted); text-align: center; line-height: 1.5; position: relative; z-index: 1; }
   .loading { text-align: center; padding: 20px; color: var(--text-faint); font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 2px; position: relative; z-index: 1; }
 
   .section { padding: 18px 16px 6px; position: relative; z-index: 1; }

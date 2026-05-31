@@ -447,7 +447,7 @@ export default function Admin() {
           <h3 className="a-section-title">📍 Geolocation mode</h3>
           <div className="a-settings-card">
             <p style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.6,marginBottom:16}}>
-              Switch between real mode (Westerpark courts) and test mode (your location at home) for testing the app.
+              Switch between real mode (Westerpark courts) and test mode (geo check bypassed) for testing the app.
             </p>
             <div className="a-settings-toggle">
               <button
@@ -466,13 +466,13 @@ export default function Admin() {
                   await setDoc(doc(db, "settings", "geo"), { testMode: true });
                   setSavingSettings(false);
                 }}>
-                🧪 Test — Home
+                🧪 Test mode
               </button>
             </div>
             {savingSettings && <div style={{fontSize:11,color:"var(--text-faint)",marginTop:8,fontFamily:"'DM Mono',monospace"}}>Saving...</div>}
             {settings?.testMode && (
               <div className="a-settings-note" style={{marginTop:12}}>
-                ⚠️ Test mode active — geolocation uses your home coordinates (52.361083, 4.859694). Remember to switch back before going live!
+  ⚠️ Test mode active — geolocation check is bypassed. Remember to switch back to Real mode before going live!
               </div>
             )}
             {!settings?.testMode && (
@@ -726,6 +726,9 @@ const adminStyles = `
   .a-settings-input:focus { border-color: var(--primary); }
   .a-settings-note { font-size: 11px; color: var(--text-faint); margin-top: 8px; line-height: 1.5; }
   .a-settings-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+  .a-preset-btns { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+  .a-preset-btn { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text-muted); font-size: 12px; cursor: pointer; text-align: left; font-family: 'Archivo', sans-serif; transition: all 0.2s; }
+  .a-preset-btn:hover { border-color: var(--primary); color: var(--text); }
   .a-settings-use-btn { background: none; border: none; color: var(--primary); font-size: 11px; cursor: pointer; padding: 0 4px; text-decoration: underline; }
   .a-peak-badge { display: inline-block; background: rgba(180,100,99,0.15); border: 1px solid rgba(180,100,99,0.3); color: var(--primary); font-size: 12px; padding: 4px 12px; border-radius: 20px; margin-bottom: 12px; font-family: 'DM Mono', monospace; }
 `;
