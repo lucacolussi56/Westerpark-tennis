@@ -87,7 +87,7 @@ function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t }) {
           <span className="queue-wait">{waitMin} min</span>
         </div>
       </div>
-      {isYou && <button className="leave-btn" onClick={onConfirmLeave}>✕ Leave</button>}
+      {isYou && <button className="leave-btn" onClick={onConfirmLeave}>✕ {t.leaveBtn || "Leave"}</button>}
       {isNext && !isYou && <div className="ready-pulse">🎾</div>}
     </div>
   );
@@ -666,10 +666,10 @@ export default function App() {
                 <div className="court-name-centered">{court.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
                 <div className="free-label">{t.free}</div>
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
-                {!isMyTurn && <button className="someone-btn" onClick={() => {
+                <button className="someone-btn" onClick={() => {
                   setSomeonePlayCourt(court.id);
                   setGeoStatusSomeone("idle");
-                }}>{t.someoneIsPlaying || "Someone is playing →"}</button>}
+                }}>{t.someoneIsPlaying || "Someone is playing →"}</button>
               </div>
             )
           )}
