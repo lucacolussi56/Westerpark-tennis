@@ -72,7 +72,34 @@ function CourtTimer({ court, t, singlesDuration, doublesDuration }) {
   );
 }
 
-function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t }) {
+function QueueItemCountdown({ notifiedAt, claimMin }) {
+  const [remaining, setRemaining] = useState(null);
+  useEffect(() => {
+    if (!notifiedAt) return;
+    const update = () => {
+      const elapsed = (Date.now() - notifiedAt) / 1000;
+      const total = (claimMin || 10) * 60;
+      const left = Math.max(0, total - elapsed);
+      setRemaining(left);
+    };
+    update();
+    const i = setInterval(update, 1000);
+    return () => clearInterval(i);
+  }, [notifiedAt, claimMin]);
+
+  if (!notifiedAt || remaining === null) return null;
+  const mins = Math.floor(remaining / 60);
+  const secs = Math.floor(remaining % 60);
+  const pct = remaining / ((claimMin || 10) * 60);
+  const urgent = pct < 0.3;
+  return (
+    <div className={`claim-countdown ${urgent ? "urgent" : ""}`}>
+      ⏳ {mins}:{String(secs).padStart(2,"0")}
+    </div>
+  );
+}
+
+function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t, claimMin }) {
   const waitMin = Math.floor((Date.now() - item.joinedAt) / 60000);
   return (
     <div className={`queue-item ${isYou ? "is-you" : ""} ${isNext ? "is-next" : ""}`}>
@@ -86,9 +113,12 @@ function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t }) {
           <span className={`queue-type ${item.type}`}>{item.type === "singles" ? t.singlesShort : t.doublesShort}</span>
           <span className="queue-wait">{waitMin} min</span>
         </div>
+        {isNext && item.notifiedAt && (
+          <QueueItemCountdown notifiedAt={item.notifiedAt} claimMin={claimMin}/>
+        )}
       </div>
       {isYou && <button className="leave-btn" onClick={onConfirmLeave}>✕ {t.leaveBtn || "Leave"}</button>}
-      {isNext && !isYou && <div className="ready-pulse">🎾</div>}
+      {isNext && !isYou && !item.notifiedAt && <div className="ready-pulse">🎾</div>}
     </div>
   );
 }
@@ -693,7 +723,7 @@ export default function App() {
             {queue.map(item => (
               <QueueItem key={item.id} item={item} isYou={myEntryId === item.id}
                 isNext={item.position === 1 && freeCourts.length > 0}
-                onLeave={leaveQueue} onConfirmLeave={() => setShowConfirmLeave(true)} t={t}/>
+                onLeave={leaveQueue} onConfirmLeave={() => setShowConfirmLeave(true)} t={t} claimMin={appSettings.queueClaimMin}/>
             ))}
           </div>
         )}
@@ -898,6 +928,8 @@ const styles = `
   .leave-btn  { background: rgba(255,68,68,0.1); color: #ff6666; border: 1px solid rgba(255,68,68,0.2); border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; }
 
   .ready-pulse { font-size: 20px; animation: bounce 0.6s infinite alternate; }
+  .claim-countdown { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--court-green); margin-top: 4px; letter-spacing: 1px; }
+  .claim-countdown.urgent { color: var(--danger); animation: blink 2s ease-in-out infinite; }
   @keyframes bounce { to{transform:translateY(-4px)} }
 
   .empty-queue { text-align: center; color: var(--text-faint); font-size: 13px; padding: 20px; font-family: 'DM Mono', monospace; letter-spacing: 1px; }
