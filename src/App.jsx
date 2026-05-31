@@ -135,7 +135,7 @@ function FeedbackModal({ t, onClose }) {
             <div style={{fontSize:48,marginBottom:16}}>🎾</div>
             <div style={{fontSize:18,color:"#4ade80",fontFamily:"'Archivo Black',sans-serif",marginBottom:8}}>Thank you! 🙏</div>
             <div style={{fontSize:14,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginBottom:8}}>{t.feedbackThanks || "Thanks for your feedback!"}</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",lineHeight:1.5}}>Your suggestions help make this app better for the whole Westerpark tennis community.</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",lineHeight:1.5}}>{t.feedbackSubtitle}</div>
           </div>
         ) : (
           <>
