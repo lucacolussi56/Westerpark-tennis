@@ -371,7 +371,7 @@ export default function App() {
             ) : (
               <div key={court.id} className="court-card free">
                 <div className="court-header">
-                  <span className="court-label">{court.id === 1 ? t.court1Name.toUpperCase() : t.court2Name.toUpperCase()}</span>
+                  <span className="court-label">{court.id === 1 ? (t.court1Name || "LEFT COURT") : (t.court2Name || "RIGHT COURT")}</span>
                 </div>
                 <div className="free-label">{t.free}</div>
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
