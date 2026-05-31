@@ -133,12 +133,14 @@ function FeedbackModal({ t, onClose }) {
       <div className="modal" onClick={e => e.stopPropagation()}>
         {sent ? (
           <div style={{textAlign:"center",padding:"20px 0"}}>
-            <div style={{fontSize:40,marginBottom:12}}>🎾</div>
-            <div style={{fontSize:16,color:"#4ade80",fontFamily:"'Archivo Black',sans-serif"}}>{t.feedbackThanks}</div>
+            <div style={{fontSize:48,marginBottom:16}}>🎾</div>
+            <div style={{fontSize:18,color:"#4ade80",fontFamily:"'Archivo Black',sans-serif",marginBottom:8}}>{t.feedbackThanks}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",lineHeight:1.5}}>Your feedback helps make this app better for the Westerpark tennis community.</div>
           </div>
         ) : (
           <>
             <h3>{t.feedbackTitle}</h3>
+            <p className="feedback-subtitle">{t.feedbackSubtitle}</p>
             <div className="stars-row">
               {[1,2,3,4,5].map(s => (
                 <button key={s} className={"star-btn " + (s <= (hovered || rating) ? "active" : "")}
@@ -147,12 +149,13 @@ function FeedbackModal({ t, onClose }) {
                   onMouseLeave={() => setHovered(0)}>★</button>
               ))}
             </div>
+            {rating === 0 && <p className="stars-hint">Tap a star to rate</p>}
             <label>{t.feedbackLabel}</label>
             <textarea value={text} onChange={e => setText(e.target.value)}
               placeholder={t.feedbackPlaceholder} rows={4}/>
             <button className="confirm-btn" onClick={submitFeedback}
               disabled={rating === 0 || sending}>
-              {sending ? "..." : t.feedbackSend}
+              {sending ? "⏳ Sending..." : t.feedbackSend}
             </button>
           </>
         )}
@@ -368,7 +371,7 @@ export default function App() {
             ) : (
               <div key={court.id} className="court-card free">
                 <div className="court-header">
-                  <span className="court-label">COURT {court.id}</span>
+                  <span className="court-label">{court.id === 1 ? t.court1Name.toUpperCase() : t.court2Name.toUpperCase()}</span>
                 </div>
                 <div className="free-label">{t.free}</div>
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
@@ -401,7 +404,7 @@ export default function App() {
 
       <div className="about-link-wrap">
         <button className="about-link" onClick={() => setShowAbout(true)}>ℹ️ {t.aboutLink}</button>
-        <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>💬 {t.feedbackLink}</button>
+        <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>{t.feedbackLink}</button>
       </div>
 
       {screen === "join" && (
@@ -501,14 +504,16 @@ const styles = `
   .join-big-btn{width:100%;background:#4ade80;color:#0a0f0a;border:none;border-radius:14px;padding:18px;font-family:'Archivo Black',sans-serif;font-size:15px;letter-spacing:1px;cursor:pointer;transition:transform 0.15s,opacity 0.15s}
   .join-big-btn:active{transform:scale(0.98);opacity:0.9}
 
-  .about-link-wrap{text-align:center;padding:16px;position:relative;z-index:1;display:flex;justify-content:center;gap:20px;flex-wrap:wrap}
-  .feedback-link{color:rgba(255,255,255,0.3)!important}
+  .about-link-wrap{text-align:center;padding:16px;position:relative;z-index:1;display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
+  .feedback-link{color:rgba(255,255,255,0.5)!important;text-decoration:none!important;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1)!important;padding:6px 14px!important;border-radius:20px!important;font-size:12px!important}
+  .feedback-subtitle{font-size:13px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:4px}
+  .stars-hint{text-align:center;font-size:11px;color:rgba(255,255,255,0.25);font-family:'DM Mono',monospace;letter-spacing:1px;margin-top:-8px}
   .stars-row{display:flex;justify-content:center;gap:8px;margin:16px 0}
   .star-btn{background:none;border:none;font-size:36px;cursor:pointer;color:rgba(255,255,255,0.15);transition:color 0.15s;padding:0;line-height:1}
   .star-btn.active{color:#ffcc00}
   .modal textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;color:white;font-size:14px;font-family:'Archivo',sans-serif;outline:none;resize:none;line-height:1.5}
   .modal textarea:focus{border-color:#4ade80}
-  .about-link{background:none;border:none;color:rgba(255,255,255,0.3);font-size:12px;cursor:pointer;font-family:'Archivo',sans-serif;text-decoration:underline}
+  .about-link{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08)!important;color:rgba(255,255,255,0.4);font-size:12px;cursor:pointer;font-family:'Archivo',sans-serif;text-decoration:none;padding:6px 14px;border-radius:20px}
   .about-link:hover{color:rgba(255,255,255,0.6)}
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:100;display:flex;align-items:flex-end;padding:20px}
   .modal{background:#141a14;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:24px;width:100%;max-width:480px;margin:0 auto;max-height:85vh;overflow-y:auto}
