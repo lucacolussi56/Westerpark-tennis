@@ -6,7 +6,7 @@ import {
 import { db } from "./firebase";
 
 // ─── CHANGE THIS PASSWORD ─────────────────────────────────────────────────────
-const ADMIN_PASSWORD = "LUCA";
+const ADMIN_PASSWORD = "YOURPASSWORDHERE";
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StarDisplay({ rating }) {
@@ -19,42 +19,119 @@ function StarDisplay({ rating }) {
   );
 }
 
-function AddToQueueForm({ db, queue }) {
+function AddToCourtForm({ db, courtId, onClose }) {
   const [name, setName] = useState("");
   const [type, setType] = useState("singles");
+  const [minsAgo, setMinsAgo] = useState(0);
   const [adding, setAdding] = useState(false);
-  const [open, setOpen] = useState(false);
 
-  async function addToQueue() {
+  async function addToCourt() {
     if (!name.trim()) return;
     setAdding(true);
-    const id = `admin_${Date.now()}_${Math.random().toString(36).slice(2,5)}`;
-    const lastJoinedAt = queue.length > 0 ? Math.max(...queue.map(q => q.joinedAt)) : Date.now();
-    await setDoc(doc(db, "queue", id), {
-      name: name.trim(), type, joinedAt: lastJoinedAt + 1
+    const startedAt = Date.now() - (minsAgo * 60000);
+    await updateDoc(doc(db, "courts", String(courtId)), {
+      status: "occupied", players: name.trim(), type, startedAt
     });
-    setName(""); setAdding(false); setOpen(false);
+    setAdding(false);
+    onClose();
   }
 
-  if (!open) return (
-    <button className="a-add-queue-btn" onClick={() => setOpen(true)}>+ Add to queue</button>
+  return (
+    <div style={{background:"rgba(180,100,99,0.08)",border:"1px solid rgba(180,100,99,0.25)",borderRadius:12,padding:14,marginBottom:10}}>
+      <div className="a-settings-sublabel" style={{marginBottom:8}}>Add player to court</div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <input value={name} onChange={e => setName(e.target.value)}
+          placeholder="Player name" autoFocus
+          style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 12px",color:"white",fontSize:14,outline:"none"}}/>
+        <div style={{display:"flex",gap:8}}>
+          <select value={type} onChange={e => setType(e.target.value)}
+            style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 10px",color:"white",fontSize:13,outline:"none"}}>
+            <option value="singles">Singles</option>
+            <option value="doubles">Doubles</option>
+          </select>
+          <div style={{display:"flex",alignItems:"center",gap:6,flex:1}}>
+            <input type="number" min="0" max="120" value={minsAgo}
+              onChange={e => setMinsAgo(parseInt(e.target.value)||0)}
+              style={{width:60,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 10px",color:"white",fontSize:13,outline:"none",textAlign:"center"}}/>
+            <span style={{fontSize:11,color:"var(--text-faint)"}}>min ago</span>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="a-end-session-btn" style={{flex:1}} onClick={addToCourt} disabled={!name.trim() || adding}>
+            {adding ? "..." : "✓ Add to court"}
+          </button>
+          <button className="a-delete-btn" onClick={onClose}>✕</button>
+        </div>
+      </div>
+    </div>
   );
+}
+
+function CourtAdminItem({ court, db, onFree }) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [type, setType] = useState("singles");
+  const [minsAgo, setMinsAgo] = useState(0);
+
+  async function addPlayer() {
+    if (!name.trim()) return;
+    setAdding(true);
+    const startedAt = Date.now() - minsAgo * 60 * 1000;
+    await updateDoc(doc(db, "courts", String(court.id)), {
+      status: "occupied", players: name.trim(), type, startedAt
+    });
+    setName(""); setMinsAgo(0); setAdding(false);
+  }
+
+  if (court.status === "occupied") {
+    return (
+      <div className="a-court-item occupied">
+        <div className="a-court-info">
+          <div className="a-court-name">{court.id === 1 ? "Left Court" : "Right Court"}</div>
+          <div className="a-court-status">🔴 {court.players}</div>
+          {court.startedAt && (
+            <div className="a-court-time">Playing for {Math.floor((Date.now() - court.startedAt) / 60000)} min · {court.type}</div>
+          )}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end"}}>
+          <button className="a-end-session-btn" onClick={async () => {
+            if (window.confirm(`End session on ${court.id === 1 ? "Left Court" : "Right Court"}?`)) {
+              await onFree(court.id);
+            }
+          }}>✓ End session</button>
+          <div style={{fontSize:10,color:"var(--text-faint)",fontFamily:"'DM Mono',monospace"}}>admin only</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="a-add-queue-form">
-      <input value={name} onChange={e => setName(e.target.value)}
-        placeholder="Player name" autoFocus
-        style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 12px",color:"white",fontSize:14,outline:"none"}}
-      />
-      <select value={type} onChange={e => setType(e.target.value)}
-        style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 10px",color:"white",fontSize:13,outline:"none"}}>
-        <option value="singles">Singles</option>
-        <option value="doubles">Doubles</option>
-      </select>
-      <button className="a-end-session-btn" onClick={addToQueue} disabled={!name.trim() || adding}>
-        {adding ? "..." : "Add"}
-      </button>
-      <button className="a-delete-btn" onClick={() => setOpen(false)}>✕</button>
+    <div className="a-court-item" style={{flexDirection:"column",alignItems:"stretch",gap:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div className="a-court-name">{court.id === 1 ? "Left Court" : "Right Court"}</div>
+        <div className="a-court-status">🟢 Free</div>
+      </div>
+      <div className="a-add-player-form">
+        <input value={name} onChange={e => setName(e.target.value)}
+          placeholder="Player name"
+          style={{flex:2,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 10px",color:"white",fontSize:13,outline:"none"}}/>
+        <select value={type} onChange={e => setType(e.target.value)}
+          style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"8px 8px",color:"white",fontSize:12,outline:"none"}}>
+          <option value="singles">Singles</option>
+          <option value="doubles">Doubles</option>
+        </select>
+      </div>
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <div style={{fontSize:12,color:"var(--text-faint)",whiteSpace:"nowrap"}}>Started</div>
+        <input type="number" min="0" max="90" value={minsAgo}
+          onChange={e => setMinsAgo(parseInt(e.target.value) || 0)}
+          style={{width:60,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:8,padding:"6px 8px",color:"white",fontSize:13,outline:"none",textAlign:"center"}}/>
+        <div style={{fontSize:12,color:"var(--text-faint)"}}>min ago</div>
+        <button className="a-end-session-btn" style={{marginLeft:"auto"}}
+          onClick={addPlayer} disabled={!name.trim() || adding}>
+          {adding ? "..." : "▶ Start session"}
+        </button>
+      </div>
     </div>
   );
 }
@@ -153,6 +230,14 @@ function SettingsTab({ db, settings, setSavingSettings, savingSettings }) {
       </button>
     </div>
   );
+}
+
+function AddToCourtFormInline({ db, courtId }) {
+  const [open, setOpen] = useState(false);
+  if (!open) return (
+    <button className="a-add-queue-btn" style={{marginTop:8}} onClick={() => setOpen(true)}>+ Add player to court</button>
+  );
+  return <AddToCourtForm db={db} courtId={courtId} onClose={() => setOpen(false)}/>;
 }
 
 export default function Admin() {
@@ -544,37 +629,10 @@ export default function Admin() {
         <div className="a-content">
           <h3 className="a-section-title">Courts</h3>
           {courts.map(court => (
-            <div key={court.id} className={`a-court-item ${court.status}`}>
-              <div className="a-court-info">
-                <div className="a-court-name">{court.id === 1 ? "Left Court" : "Right Court"}</div>
-                <div className={`a-court-status ${court.status}`}>
-                  {court.status === "free" ? "🟢 Free" : `🔴 ${court.players}`}
-                </div>
-                {court.startedAt && (
-                  <div className="a-court-time">
-                    Playing for {Math.floor((Date.now() - court.startedAt) / 60000)} min
-                  </div>
-                )}
-              </div>
-              {court.status === "occupied" && (
-                <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end"}}>
-                  <button className="a-end-session-btn" onClick={async () => {
-                    if (window.confirm(`End session on ${court.id === 1 ? "Left Court" : "Right Court"}?`)) {
-                      await freeCourt(court.id);
-                    }
-                  }}>
-                    ✓ End session
-                  </button>
-                  <div style={{fontSize:10,color:"var(--text-faint)",textAlign:"right",fontFamily:"'DM Mono',monospace"}}>admin only</div>
-                </div>
-              )}
-            </div>
+            <CourtAdminItem key={court.id} court={court} db={db} onFree={freeCourt} />
           ))}
 
           <h3 className="a-section-title" style={{marginTop:24}}>Queue ({queue.length})</h3>
-
-          {/* Add to queue form */}
-          <AddToQueueForm db={db} queue={queue} />
 
           {queue.length === 0 && <div className="a-empty">Queue is empty</div>}
           {queue.map((item, idx) => (
@@ -782,6 +840,7 @@ const adminStyles = `
   .a-settings-input:focus { border-color: var(--primary); }
   .a-settings-note { font-size: 11px; color: var(--text-faint); margin-top: 8px; line-height: 1.5; }
   .a-settings-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+  .a-add-player-form { display: flex; gap: 6px; }
   .a-preset-btns { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
   .a-preset-btn { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; color: var(--text-muted); font-size: 12px; cursor: pointer; text-align: left; font-family: 'Archivo', sans-serif; transition: all 0.2s; }
   .a-preset-btn:hover { border-color: var(--primary); color: var(--text); }

@@ -408,7 +408,7 @@ export default function App() {
 
   async function markCourtOccupied() {
     await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
-      status: "occupied", players: "Unknown player", type: form.type, startedAt: Date.now()
+      status: "occupied", players: t.unknownPlayer || "Unknown player", type: form.type, startedAt: Date.now()
     });
     if (!myEntryId) {
       const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
@@ -496,17 +496,24 @@ export default function App() {
 
   // Validate queue entry exists in Firestore (clean up stale localStorage)
   useEffect(() => {
-    if (queue.length === 0 && !loading) return;
     const saved = localStorage.getItem("myQueueEntry");
     if (!saved) return;
     const { id } = JSON.parse(saved);
+    // Set tentatively while loading
+    setMyEntryId(id);
+    // Only clean up after queue has loaded and is confirmed empty of this ID
+    if (loading) return;
     const exists = queue.find(q => q.id === id);
-    if (exists) {
-      setMyEntryId(id);
-    } else {
-      // Entry no longer exists in queue, clean up
-      localStorage.removeItem("myQueueEntry");
-      setMyEntryId(null);
+    if (!exists && queue.length >= 0) {
+      // Wait a bit to avoid race condition on first load
+      const timer = setTimeout(() => {
+        const stillExists = queue.find(q => q.id === id);
+        if (!stillExists) {
+          localStorage.removeItem("myQueueEntry");
+          setMyEntryId(null);
+        }
+      }, 3000);
+      return () => clearTimeout(timer);
     }
   }, [queue, loading]);
 
@@ -636,7 +643,7 @@ export default function App() {
               <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
                 <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
                 {(() => {
-                  const limit = court.type === "singles" ? 45 : 60;
+                  const limit = court.type === "singles" ? (appSettings.singlesDuration || 45) : (appSettings.doublesDuration || 60);
                   const elapsedMin = (Date.now() - court.startedAt) / 60000;
                   const overtimeMin = elapsedMin - limit;
                   const myEntry = queue.find(q => q.id === myEntryId);
@@ -850,8 +857,8 @@ const styles = `
   .court-players { font-size: 13px; color: var(--text); margin-bottom: 10px; line-height: 1.3; min-height: 30px; font-weight: 500; }
   .timer-ring-container { display: flex; justify-content: center; }
 
-  .overtime-badge { text-align: center; font-size: 10px; color: var(--danger); font-family: 'DM Mono', monospace; letter-spacing: 1px; margin-top: 6px; animation: blink 1s infinite; }
-  @keyframes blink { 50%{opacity:0} }
+  .overtime-badge { text-align: center; font-size: 10px; color: var(--danger); font-family: 'DM Mono', monospace; letter-spacing: 1px; margin-top: 6px; animation: blink 2s ease-in-out infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
 
   .free-label { font-size: 14px; color: var(--green-free); font-weight: 500; }
 
@@ -935,7 +942,7 @@ const styles = `
 
   .playing-screen { display: flex; flex-direction: column; align-items: center; padding-bottom: 40px; }
   .big-timer { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
-  .overtime-big { margin-top: 16px; color: var(--danger); font-size: 14px; font-family: 'DM Mono', monospace; letter-spacing: 1px; animation: blink 1s infinite; }
+  .overtime-big { margin-top: 16px; color: var(--danger); font-size: 14px; font-family: 'DM Mono', monospace; letter-spacing: 1px; animation: blink 2s ease-in-out infinite; }
   .done-btn { background: var(--primary); color: white; border: none; border-radius: 14px; padding: 18px 40px; font-family: 'Archivo Black', sans-serif; font-size: 16px; cursor: pointer; margin: 0 20px; width: calc(100% - 40px); box-shadow: 0 4px 20px var(--primary-glow); }
   .playing-note { margin-top: 12px; font-size: 12px; color: var(--text-faint); text-align: center; padding: 0 30px; line-height: 1.5; }
 `;
