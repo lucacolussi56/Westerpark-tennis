@@ -545,7 +545,7 @@ export default function App() {
   );
 }
 
-const styles = \`
+const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Archivo+Black&family=Archivo:wght@400;500&display=swap');
 
   :root {
@@ -734,4 +734,4 @@ const styles = \`
   .overtime-big { margin-top: 16px; color: var(--danger); font-size: 14px; font-family: 'DM Mono', monospace; letter-spacing: 1px; animation: blink 1s infinite; }
   .done-btn { background: var(--primary); color: white; border: none; border-radius: 14px; padding: 18px 40px; font-family: 'Archivo Black', sans-serif; font-size: 16px; cursor: pointer; margin: 0 20px; width: calc(100% - 40px); box-shadow: 0 4px 20px var(--primary-glow); }
   .playing-note { margin-top: 12px; font-size: 12px; color: var(--text-faint); text-align: center; padding: 0 30px; line-height: 1.5; }
-\`;
+`;
