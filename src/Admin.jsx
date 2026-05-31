@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import {
   collection, onSnapshot, query, orderBy,
-  deleteDoc, doc, updateDoc
+  deleteDoc, doc, updateDoc, where
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-const ADMIN_PASSWORD = "LUCA";
+// ─── CHANGE THIS PASSWORD ─────────────────────────────────────────────────────
+const ADMIN_PASSWORD = "YOURPASSWORDHERE";
+// ─────────────────────────────────────────────────────────────────────────────
 
 function StarDisplay({ rating }) {
   return (
@@ -25,7 +27,9 @@ export default function Admin() {
   const [feedback, setFeedback] = useState([]);
   const [courts, setCourts] = useState([]);
   const [queue, setQueue] = useState([]);
-  const [stats, setStats] = useState({ total: 0, avgRating: 0, byHour: {} });
+  const [stats, setStats] = useState({ total: 0, avgRating: 0 });
+  const [sessions, setSessions] = useState([]);
+  const [period, setPeriod] = useState(7);
   const [tab, setTab] = useState("overview");
   const [deleting, setDeleting] = useState(null);
 
@@ -58,6 +62,11 @@ export default function Admin() {
       setCourts(snap.docs.map(d => ({ id: Number(d.id), ...d.data() })).sort((a,b) => a.id - b.id));
     });
 
+    const unsubSessions = onSnapshot(
+      query(collection(db, "sessions"), orderBy("endedAt", "desc")),
+      snap => { setSessions(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }
+    );
+
     const unsubQueue = onSnapshot(
       query(collection(db, "queue"), orderBy("joinedAt", "asc")),
       snap => {
@@ -66,7 +75,7 @@ export default function Admin() {
       }
     );
 
-    return () => { unsubFeedback(); unsubCourts(); unsubQueue(); };
+    return () => { unsubFeedback(); unsubCourts(); unsubQueue(); unsubSessions(); };
   }, [authed]);
 
   async function deleteFeedback(id) {
@@ -125,9 +134,9 @@ export default function Admin() {
       </header>
 
       <div className="a-tabs">
-        {["overview", "feedback", "courts"].map(t => (
+        {["overview", "feedback", "courts", "leaderboard"].map(t => (
           <button key={t} className={`a-tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : "🎾 Live"}
+            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : t === "courts" ? "🎾 Live" : "🏆 Leaderboard"}
           </button>
         ))}
       </div>
@@ -191,6 +200,72 @@ export default function Admin() {
           ))}
         </div>
       )}
+
+      {tab === "leaderboard" && (() => {
+        const cutoff = Date.now() - period * 24 * 60 * 60 * 1000;
+        const filtered = sessions.filter(s => s.endedAt >= cutoff);
+
+        // Build leaderboard
+        const counts = {};
+        filtered.forEach(s => {
+          const name = s.name || "Unknown";
+          if (!counts[name]) counts[name] = { name, sessions: 0, minutes: 0 };
+          counts[name].sessions += 1;
+          counts[name].minutes += s.durationMin || 0;
+        });
+        const leaderboard = Object.values(counts).sort((a, b) => b.sessions - a.sessions);
+
+        // Recent sessions
+        const recent = filtered.slice(0, 20);
+
+        return (
+          <div className="a-content">
+            <div className="a-period-toggle">
+              {[1, 7, 30].map(p => (
+                <button key={p} className={`a-period-btn ${period === p ? "active" : ""}`}
+                  onClick={() => setPeriod(p)}>
+                  {p === 1 ? "Today" : p === 7 ? "7 days" : "30 days"}
+                </button>
+              ))}
+            </div>
+
+            <div className="a-cards" style={{marginBottom:20}}>
+              <div className="a-card">
+                <div className="a-card-value">{filtered.length}</div>
+                <div className="a-card-label">Sessions</div>
+              </div>
+              <div className="a-card">
+                <div className="a-card-value">{leaderboard.length}</div>
+                <div className="a-card-label">Players</div>
+              </div>
+            </div>
+
+            <h3 className="a-section-title">🏆 Leaderboard</h3>
+            {leaderboard.length === 0 && <div className="a-empty">No sessions yet</div>}
+            {leaderboard.map((player, i) => (
+              <div key={player.name} className="a-leaderboard-item">
+                <div className={`a-rank ${i === 0 ? "gold" : i === 1 ? "silver" : i === 2 ? "bronze" : ""}`}>
+                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}
+                </div>
+                <div className="a-player-info">
+                  <div className="a-player-name">{player.name}</div>
+                  <div className="a-player-meta">{player.sessions} session{player.sessions !== 1 ? "s" : ""} · {player.minutes} min total</div>
+                </div>
+              </div>
+            ))}
+
+            <h3 className="a-section-title" style={{marginTop:24}}>Recent sessions</h3>
+            {recent.map(s => (
+              <div key={s.id} className="a-session-item">
+                <div className="a-session-name">{s.name}</div>
+                <div className="a-session-meta">
+                  {s.type} · Court {s.courtId} · {s.durationMin} min · {new Date(s.endedAt).toLocaleDateString()} {new Date(s.endedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {tab === "courts" && (
         <div className="a-content">
@@ -289,4 +364,14 @@ const adminStyles = `
   .a-queue-info { flex: 1; }
   .a-queue-name { font-size: 15px; font-weight: 500; }
   .a-queue-meta { font-size: 11px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .a-period-toggle { display: flex; gap: 8px; margin-bottom: 20px; }
+  .a-period-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 14px; color: rgba(255,255,255,0.5); font-size: 12px; cursor: pointer; }
+  .a-period-btn.active { background: rgba(74,222,128,0.15); border-color: #4ade80; color: #4ade80; }
+  .a-leaderboard-item { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+  .a-rank { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
+  .a-player-name { font-size: 15px; font-weight: 500; }
+  .a-player-meta { font-size: 11px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .a-session-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; }
+  .a-session-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+  .a-session-meta { font-size: 11px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace; }
 `;

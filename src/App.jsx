@@ -373,6 +373,19 @@ export default function App() {
   }
 
   async function markDone(courtId) {
+    // Save session to history
+    if (myPlaying) {
+      const durationMin = Math.floor((Date.now() - myPlaying.startedAt) / 60000);
+      await addDoc(collection(db, "sessions"), {
+        name: queue.find(q => q.id === myEntryId)?.name || myPlaying.players || "Unknown",
+        type: myPlaying.type,
+        courtId,
+        startedAt: myPlaying.startedAt,
+        endedAt: Date.now(),
+        durationMin,
+        date: new Date().toISOString().split("T")[0],
+      });
+    }
     // Find first person in queue and set a notification trigger
     const firstInQueue = queue[0];
     if (firstInQueue) {
