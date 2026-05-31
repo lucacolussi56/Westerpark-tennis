@@ -451,11 +451,25 @@ export default function App() {
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem("myQueueEntry");
-    if (saved) setMyEntryId(JSON.parse(saved).id);
     const playing = localStorage.getItem("myPlaying");
     if (playing) { setMyPlaying(JSON.parse(playing)); setScreen("playing"); }
   }, []);
+
+  // Validate queue entry exists in Firestore (clean up stale localStorage)
+  useEffect(() => {
+    if (queue.length === 0 && !loading) return;
+    const saved = localStorage.getItem("myQueueEntry");
+    if (!saved) return;
+    const { id } = JSON.parse(saved);
+    const exists = queue.find(q => q.id === id);
+    if (exists) {
+      setMyEntryId(id);
+    } else {
+      // Entry no longer exists in queue, clean up
+      localStorage.removeItem("myQueueEntry");
+      setMyEntryId(null);
+    }
+  }, [queue, loading]);
 
   if (screen === "playing" && myPlaying) return <PlayingScreen myPlaying={myPlaying} onDone={markDone} t={t}/>;
 
