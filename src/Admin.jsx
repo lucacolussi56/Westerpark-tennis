@@ -5,9 +5,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// ─── CHANGE THIS PASSWORD ─────────────────────────────────────────────────────
-const ADMIN_PASSWORD = "YOURPASSWORDHERE";
-// ─────────────────────────────────────────────────────────────────────────────
+const ADMIN_PASSWORD = "LUCA";
 
 function StarDisplay({ rating }) {
   return (
