@@ -9,6 +9,7 @@ import { translations } from "./i18n";
 const WESTERPARK_COORDS = { lat: 52.387583, lng: 4.875667 };
 const MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
+const OVERTIME_CLAIM_MIN = 5;   // minuti di overtime prima che il primo in fila possa liberare il campo
 
 function getDistanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -252,6 +253,7 @@ export default function App() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [showFairPlay, setShowFairPlay] = useState(false);
   const [showConfirmLeave, setShowConfirmLeave] = useState(false);
+  const [someonePlayCourt, setSomeonePlayCourt] = useState(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
 
   // Track page view
@@ -363,6 +365,23 @@ export default function App() {
     localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
   }
 
+  async function claimCourt(courtId) {
+    // First in queue claims a court that has been overtime for 5+ min
+    const myEntry = queue.find(q => q.id === myEntryId);
+    if (!myEntry) return;
+    await updateDoc(doc(db, "courts", String(courtId)), {
+      status: "occupied", players: myEntry.name, type: myEntry.type, startedAt: Date.now()
+    });
+    await deleteDoc(doc(db, "queue", myEntryId));
+    setMyEntryId(null);
+    const playing = { courtId, startedAt: Date.now(), type: myEntry.type };
+    setMyPlaying(playing);
+    localStorage.removeItem("myQueueEntry");
+    localStorage.setItem("myPlaying", JSON.stringify(playing));
+    logEvent(analytics, "start_playing", { court: courtId, type: myEntry.type });
+    setScreen("playing");
+  }
+
   async function leaveQueue() {
     if (!myEntryId) return;
     await deleteDoc(doc(db, "queue", myEntryId));
@@ -402,7 +421,7 @@ export default function App() {
     // Find first person in queue and set a notification trigger
     const firstInQueue = queue[0];
     if (firstInQueue) {
-      await updateDoc(doc(db, "queue", firstInQueue.id), { notify: Date.now() });
+      await updateDoc(doc(db, "queue", firstInQueue.id), { notify: Date.now(), notifiedAt: Date.now() });
     }
     await updateDoc(doc(db, "courts", String(courtId)), { status: "free", players: null, type: null, startedAt: null });
     setMyPlaying(null);
@@ -433,6 +452,39 @@ export default function App() {
       {showAbout && <AboutModal t={t} onClose={() => setShowAbout(false)}/>}
       {showFeedback && <FeedbackModal t={t} onClose={() => setShowFeedback(false)}/>}
       {showFairPlay && <FairPlayModal t={t} onClose={() => setShowFairPlay(false)}/>}
+      {someonePlayCourt && (
+        <div className="modal-overlay" onClick={() => setSomeonePlayCourt(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>👀 {t.someoneIsPlayingTitle || "Someone is playing?"}</h3>
+            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:20}}>
+              {t.someoneIsPlayingText || "Mark this court as occupied and join the queue as first in line."}
+            </p>
+            <label>{t.yourName}</label>
+            <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
+              placeholder={t.namePlaceholder} autoFocus/>
+            <label>{t.matchType}</label>
+            <div className="type-toggle">
+              <button className={form.type === "singles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "singles"}))}>{t.singlesTime}</button>
+              <button className={form.type === "doubles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "doubles"}))}>{t.doublesTime}</button>
+            </div>
+            <button className="confirm-btn" disabled={!form.name.trim()} onClick={async () => {
+              if (!form.name.trim()) return;
+              await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
+                status: "occupied", players: "Unknown player", type: form.type, startedAt: Date.now()
+              });
+              const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+              await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() - 1 });
+              setMyEntryId(id);
+              localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
+              setSomeonePlayCourt(null);
+              notify(t.notifJoined);
+            }}>
+              {t.someoneIsPlayingConfirm || "Mark as occupied & join queue →"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {showConfirmLeave && (
         <div className="modal-overlay" onClick={() => setShowConfirmLeave(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -466,12 +518,33 @@ export default function App() {
         <div className="courts-grid">
           {courts.map(court =>
             court.status === "occupied" ? (
-              <CourtTimer key={court.id} court={court} t={t}/>
+              <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
+                <CourtTimer key={court.id} court={court} t={t}/>
+                {(() => {
+                  const limit = court.type === "singles" ? 45 : 60;
+                  const elapsedMin = (Date.now() - court.startedAt) / 60000;
+                  const overtimeMin = elapsedMin - limit;
+                  const myEntry = queue.find(q => q.id === myEntryId);
+                  const isFirstInQueue = myEntry?.position === 1;
+                  if (isFirstInQueue && overtimeMin >= OVERTIME_CLAIM_MIN) {
+                    return (
+                      <div className="claim-banner">
+                        <div className="claim-banner-text">🎾 {t.claimCourtBanner || "Looks like the court is free — did the previous player forget to check out?"}</div>
+                        <button className="claim-btn" onClick={() => claimCourt(court.id)}>
+                          {t.claimCourtBtn || "Start playing →"}
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             ) : (
               <div key={court.id} className="court-card free">
                 <div className="court-name-centered">{court.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
                 <div className="free-label">{t.free}</div>
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
+                {!isMyTurn && !myEntryId && <button className="someone-btn" onClick={() => setSomeonePlayCourt(court.id)}>{t.someoneIsPlaying || "Someone is playing →"}</button>}
               </div>
             )
           )}
@@ -664,6 +737,12 @@ const styles = `
   .free-label { font-size: 14px; color: var(--green-free); font-weight: 500; }
 
   .play-btn { background: var(--primary); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Archivo Black', sans-serif; font-size: 11px; cursor: pointer; }
+  .someone-btn { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--text-faint); border-radius: 8px; padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: 'Archivo', sans-serif; transition: all 0.2s; }
+  .someone-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .claim-banner { background: rgba(180,100,99,0.08); border: 1px solid rgba(180,100,99,0.3); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .claim-banner-text { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .claim-btn { width: 100%; background: var(--primary); color: white; border: none; border-radius: 8px; padding: 10px 14px; font-size: 13px; cursor: pointer; font-family: 'Archivo Black', sans-serif; letter-spacing: 0.3px; }
+
 
   .queue-list { display: flex; flex-direction: column; gap: 8px; }
   .queue-item { display: flex; align-items: center; gap: 12px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; transition: all 0.3s; }
