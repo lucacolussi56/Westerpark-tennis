@@ -241,11 +241,12 @@ export default function Admin() {
             {/* Day of week stats */}
             <h3 className="a-section-title">📅 Busiest days</h3>
             {(() => {
-              const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+              const days = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
               const dayCounts = Array(7).fill(0);
               filtered.forEach(s => {
-                const d = new Date(s.endedAt).getDay();
-                dayCounts[d]++;
+                const d = new Date(s.endedAt).getDay(); // 0=Sun, 1=Mon...
+                const idx = d === 0 ? 6 : d - 1; // remap: Mon=0, Sun=6
+                dayCounts[idx]++;
               });
               const maxDay = Math.max(...dayCounts, 1);
               return (
@@ -272,7 +273,7 @@ export default function Admin() {
                 hourCounts[h]++;
               });
               const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
-              const relevantHours = hourCounts.slice(7, 22); // 7am-10pm
+              const relevantHours = hourCounts.slice(6, 24); // 6am-midnight
               const maxHour = Math.max(...relevantHours, 1);
               return (
                 <>
@@ -283,14 +284,82 @@ export default function Admin() {
                     {relevantHours.map((count, i) => (
                       <div key={i} className="a-bar-col">
                         <div className="a-bar-wrap">
-                          <div className="a-bar" style={{height: `${(count/maxHour)*60}px`, background: i+7 === peakHour ? "var(--primary)" : "var(--court-green)"}}/>
+                          <div className="a-bar" style={{height: `${(count/maxHour)*60}px`, background: i+6 === peakHour ? "var(--primary)" : "var(--court-green)"}}/>
                         </div>
-                        <div className="a-bar-label">{i+7}</div>
+                        <div className="a-bar-label">{i+6}</div>
                       </div>
                     ))}
                   </div>
                 </>
               );
+            })()}
+
+            {/* Monthly seasonality - show for Year and All time */}
+            {(period === 365 || period === 0) && (() => {
+              const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+              
+              // Group by year-month
+              const yearMonthCounts = {};
+              filtered.forEach(s => {
+                const d = new Date(s.endedAt);
+                const year = d.getFullYear();
+                const month = d.getMonth();
+                const key = `${year}-${month}`;
+                if (!yearMonthCounts[key]) yearMonthCounts[key] = { year, month, count: 0 };
+                yearMonthCounts[key].count++;
+              });
+
+              // For Year view: show months of current year
+              // For All time: show by year
+              if (period === 365) {
+                const year = new Date().getFullYear();
+                const monthlyCounts = Array(12).fill(0);
+                Object.values(yearMonthCounts).forEach(({ year: y, month, count }) => {
+                  if (y === year) monthlyCounts[month] = count;
+                });
+                const maxMonth = Math.max(...monthlyCounts, 1);
+                return (
+                  <>
+                    <h3 className="a-section-title" style={{marginTop:20}}>📆 {new Date().getFullYear()} by month</h3>
+                    <div className="a-bar-chart">
+                      {months.map((m, i) => (
+                        <div key={m} className="a-bar-col">
+                          <div className="a-bar-wrap">
+                            <div className="a-bar" style={{height: `${(monthlyCounts[i]/maxMonth)*60}px`}}/>
+                          </div>
+                          <div className="a-bar-label">{m}</div>
+                          <div className="a-bar-count">{monthlyCounts[i]}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              } else {
+                // All time: group by year
+                const yearCounts = {};
+                filtered.forEach(s => {
+                  const y = new Date(s.endedAt).getFullYear();
+                  yearCounts[y] = (yearCounts[y] || 0) + 1;
+                });
+                const years = Object.keys(yearCounts).sort();
+                const maxYear = Math.max(...Object.values(yearCounts), 1);
+                return (
+                  <>
+                    <h3 className="a-section-title" style={{marginTop:20}}>📆 All time by year</h3>
+                    <div className="a-bar-chart">
+                      {years.map(y => (
+                        <div key={y} className="a-bar-col">
+                          <div className="a-bar-wrap">
+                            <div className="a-bar" style={{height: `${(yearCounts[y]/maxYear)*60}px`, background: "var(--primary)"}}/>
+                          </div>
+                          <div className="a-bar-label">{y}</div>
+                          <div className="a-bar-count">{yearCounts[y]}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              }
             })()}
 
             <h3 className="a-section-title" style={{marginTop:20}}>🏆 Leaderboard</h3>
@@ -424,7 +493,7 @@ const adminStyles = `
     border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer;
   }
 
-  .a-tabs { display: flex; gap: 8px; padding: 16px; overflow-x: auto; }
+  .a-tabs { display: flex; gap: 6px; padding: 12px 16px; flex-wrap: wrap; }
   .a-tab {
     background: var(--bg-card); border: 1px solid var(--border);
     border-radius: 10px; padding: 8px 14px; color: var(--text-muted);
