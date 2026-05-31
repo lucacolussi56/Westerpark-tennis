@@ -41,7 +41,7 @@ export const translations = {
     connecting: "Connecting...",
     aboutLink: "About this project",
     aboutTitle: "About this project",
-    aboutText: `These two outdoor tennis courts at Westerpark operate on an informal first-come, first-served basis. Without a clear queue, it's often hard to know who arrived first or whose turn it is next.\n\nThis app is a community tool to make that process a little easier and fairer. It is entirely optional — nobody is required to use it.\n\nThis is not an official service. It has no affiliation with the City of Amsterdam, Westerpark, or any sports organization. It was built by and for the local tennis community, free of charge, with no data collection beyond first names.\n\nIf the community finds it useful, great. If not, just ignore it.`,
+    aboutText: "These two outdoor tennis courts at Westerpark operate on an informal first-come, first-served basis. Without a clear queue, it's often hard to know who arrived first or whose turn it is next.\n\nThis app is a community tool to make that process a little easier and fairer. It is entirely optional — nobody is required to use it.\n\nThis is not an official service. It has no affiliation with the City of Amsterdam, Westerpark, or any sports organization. It was built by and for the local tennis community, free of charge, with no data collection beyond first names.\n\nIf the community finds it useful, great. If not, just ignore it.",
     close: "Close",
     minAgo: "min ago",
     court1Name: "Left Court",
@@ -53,6 +53,15 @@ export const translations = {
     feedbackPlaceholder: "Write your feedback here...",
     feedbackSend: "Send feedback →",
     feedbackThanks: "Thanks for your feedback!",
+    fairPlayLink: "Fair play",
+    fairPlayTitle: "Fair Play Rules",
+    fairPlayRules: [
+      { emoji: "🎾", text: "One spot per group — don't join the queue separately if you're playing together." },
+      { emoji: "⏱️", text: "Respect the time — singles 45 min, doubles 60 min. When time is up, finish the point and leave." },
+      { emoji: "✅", text: 'Always press "Done" — if you leave without pressing it, the next person waits for nothing.' },
+      { emoji: "📍", text: "Queue only at the courts — the geolocation is there for a reason." },
+      { emoji: "🤝", text: "Be kind — this is an informal community tool, not an official system. Treat others how you'd like to be treated." },
+    ],
   },
   nl: {
     appName: "Westerpark",
@@ -96,7 +105,7 @@ export const translations = {
     connecting: "Verbinden...",
     aboutLink: "Over dit project",
     aboutTitle: "Over dit project",
-    aboutText: `Deze twee buitentennisbanen in Westerpark werken op basis van informele volgorde van binnenkomst. Zonder duidelijke wachtrij is het vaak onduidelijk wie het eerst aankwam of wie als volgende mag spelen.\n\nDeze app is een hulpmiddel van de gemeenschap om dat proces een beetje makkelijker en eerlijker te maken. Het gebruik is volledig vrijwillig — niemand is verplicht het te gebruiken.\n\nDit is geen officiële dienst. Er is geen band met de Gemeente Amsterdam, Westerpark of een sportorganisatie. Het is gebouwd door en voor de lokale tenniscommunity, gratis en zonder gegevensverzameling behalve voornamen.\n\nAls de gemeenschap er baat bij heeft, prima. Zo niet, negeer het gewoon.`,
+    aboutText: "Deze twee buitentennisbanen in Westerpark werken op basis van informele volgorde van binnenkomst. Zonder duidelijke wachtrij is het vaak onduidelijk wie het eerst aankwam of wie als volgende mag spelen.\n\nDeze app is een hulpmiddel van de gemeenschap om dat proces een beetje makkelijker en eerlijker te maken. Het gebruik is volledig vrijwillig — niemand is verplicht het te gebruiken.\n\nDit is geen officiële dienst. Er is geen band met de Gemeente Amsterdam, Westerpark of een sportorganisatie. Het is gebouwd door en voor de lokale tenniscommunity, gratis en zonder gegevensverzameling behalve voornamen.\n\nAls de gemeenschap er baat bij heeft, prima. Zo niet, negeer het gewoon.",
     close: "Sluiten",
     minAgo: "min geleden",
     court1Name: "Linkerbaan",
@@ -108,5 +117,14 @@ export const translations = {
     feedbackPlaceholder: "Schrijf hier je feedback...",
     feedbackSend: "Feedback versturen →",
     feedbackThanks: "Bedankt voor je feedback!",
+    fairPlayLink: "Spelregels",
+    fairPlayTitle: "Spelregels",
+    fairPlayRules: [
+      { emoji: "🎾", text: "Één plek per groep — schrijf je niet apart in als je samen speelt." },
+      { emoji: "⏱️", text: "Respecteer de tijd — enkel 45 min, dubbel 60 min. Als de tijd om is, maak je punt af en verlaat de baan." },
+      { emoji: "✅", text: "Druk altijd op 'Klaar' — als je vertrekt zonder te drukken, wacht de volgende voor niets." },
+      { emoji: "📍", text: "Alleen inschrijven bij de banen — de geolocatie is er niet voor niets." },
+      { emoji: "🤝", text: "Wees vriendelijk — dit is een informeel community-hulpmiddel, geen officieel systeem. Behandel anderen zoals je zelf behandeld wil worden." },
+    ],
   }
 };
