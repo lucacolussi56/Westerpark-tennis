@@ -6,7 +6,7 @@ import {
 import { db } from "./firebase";
 
 // ─── CHANGE THIS PASSWORD ─────────────────────────────────────────────────────
-const ADMIN_PASSWORD = "YOURPASSWORDHERE";
+const ADMIN_PASSWORD = "LUCA";
 // ─────────────────────────────────────────────────────────────────────────────
 
 function StarDisplay({ rating }) {
@@ -55,6 +55,102 @@ function AddToQueueForm({ db, queue }) {
         {adding ? "..." : "Add"}
       </button>
       <button className="a-delete-btn" onClick={() => setOpen(false)}>✕</button>
+    </div>
+  );
+}
+
+function SettingsTab({ db, settings, setSavingSettings, savingSettings }) {
+  const [form, setForm] = useState({
+    testMode: false, maintenance: false, maintenanceMsg: "",
+    welcomeMsg: "", singlesDuration: 45, doublesDuration: 60,
+    overtimeClaimMin: 5, geoRadius: 250,
+  });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (settings) setForm(f => ({...f, ...settings}));
+  }, [settings]);
+
+  async function save() {
+    setSavingSettings(true);
+    await setDoc(doc(db, "settings", "geo"), form);
+    setSavingSettings(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="a-content">
+
+      <h3 className="a-section-title">🚧 Maintenance mode</h3>
+      <div className="a-settings-card">
+        <div className="a-settings-toggle" style={{marginBottom:12}}>
+          <button className={`a-period-btn ${!form.maintenance ? "active" : ""}`} onClick={() => setForm(f => ({...f, maintenance: false}))}>✅ App online</button>
+          <button className={`a-period-btn ${form.maintenance ? "active" : ""}`} onClick={() => setForm(f => ({...f, maintenance: true}))}>🚧 Maintenance</button>
+        </div>
+        <div className="a-settings-sublabel">Quick presets</div>
+        <div className="a-preset-btns">
+          {["Back in 10 minutes 🎾","Courts closed today — see you tomorrow!","1 court available today — court 2 closed","Over 10 minuten terug 🎾","Banen vandaag gesloten — tot morgen!","Vandaag 1 baan beschikbaar — baan 2 gesloten"].map(msg => (
+            <button key={msg} className="a-preset-btn" onClick={() => setForm(f => ({...f, maintenanceMsg: msg}))}>{msg}</button>
+          ))}
+        </div>
+        <div className="a-settings-sublabel" style={{marginTop:10}}>Custom message</div>
+        <input className="a-settings-input" style={{marginTop:6}} value={form.maintenanceMsg}
+          onChange={e => setForm(f => ({...f, maintenanceMsg: e.target.value}))}
+          placeholder="e.g. Back in 10 minutes"/>
+      </div>
+
+      <h3 className="a-section-title">👋 Welcome message</h3>
+      <div className="a-settings-card">
+        <div className="a-settings-sublabel">Banner shown at top of app. Leave empty to hide.</div>
+        <input className="a-settings-input" style={{marginTop:6}} value={form.welcomeMsg}
+          onChange={e => setForm(f => ({...f, welcomeMsg: e.target.value}))}
+          placeholder="e.g. Court 2 closed today"/>
+      </div>
+
+      <h3 className="a-section-title">⏱ Match durations</h3>
+      <div className="a-settings-card">
+        <div className="a-settings-row">
+          <div className="a-settings-field">
+            <div className="a-settings-sublabel">Singles (min)</div>
+            <input className="a-settings-input" type="number" min="15" max="120" step="5"
+              value={form.singlesDuration} onChange={e => setForm(f => ({...f, singlesDuration: parseInt(e.target.value)}))}/>
+          </div>
+          <div className="a-settings-field">
+            <div className="a-settings-sublabel">Doubles (min)</div>
+            <input className="a-settings-input" type="number" min="15" max="120" step="5"
+              value={form.doublesDuration} onChange={e => setForm(f => ({...f, doublesDuration: parseInt(e.target.value)}))}/>
+          </div>
+        </div>
+        <div className="a-settings-field" style={{marginTop:10}}>
+          <div className="a-settings-sublabel">Overtime before "court free?" banner (min)</div>
+          <input className="a-settings-input" type="number" min="1" max="30"
+            value={form.overtimeClaimMin} onChange={e => setForm(f => ({...f, overtimeClaimMin: parseInt(e.target.value)}))}/>
+        </div>
+      </div>
+
+      <h3 className="a-section-title">📍 Geolocation</h3>
+      <div className="a-settings-card">
+        <div className="a-settings-toggle" style={{marginBottom:12}}>
+          <button className={`a-period-btn ${!form.testMode ? "active" : ""}`} onClick={() => setForm(f => ({...f, testMode: false}))}>🎾 Real — Westerpark</button>
+          <button className={`a-period-btn ${form.testMode ? "active" : ""}`} onClick={() => setForm(f => ({...f, testMode: true}))}>🧪 Test mode</button>
+        </div>
+        {form.testMode && <div className="a-settings-note">⚠️ Geo check bypassed. Switch back before going live!</div>}
+        <div className="a-settings-field" style={{marginTop:10}}>
+          <div className="a-settings-sublabel">Detection radius (meters)</div>
+          <input className="a-settings-input" type="number" min="50" max="1000" step="10"
+            value={form.geoRadius} onChange={e => setForm(f => ({...f, geoRadius: parseInt(e.target.value)}))}/>
+        </div>
+      </div>
+
+      <button className="a-end-session-btn"
+        style={{width:"100%",padding:14,fontSize:14,marginTop:4,
+          background: saved ? "rgba(128,164,120,0.2)" : "",
+          borderColor: saved ? "var(--court-green)" : "",
+          color: saved ? "var(--court-green)" : ""}}
+        onClick={save} disabled={savingSettings}>
+        {saved ? "✅ Saved!" : savingSettings ? "Saving..." : "💾 Save all settings"}
+      </button>
     </div>
   );
 }
@@ -442,98 +538,7 @@ export default function Admin() {
         );
       })()}
 
-      {tab === "settings" && (() => {
-        const [form, setForm] = React.useState({
-          testMode: false, maintenance: false, maintenanceMsg: "",
-          welcomeMsg: "", singlesDuration: 45, doublesDuration: 60,
-          overtimeClaimMin: 5, geoRadius: 250,
-        });
-        const [saved, setSaved] = React.useState(false);
-        React.useEffect(() => { if (settings) setForm(f => ({...f, ...settings})); }, [settings]);
-
-        async function save() {
-          setSavingSettings(true);
-          await setDoc(doc(db, "settings", "geo"), form);
-          setSavingSettings(false);
-          setSaved(true);
-          setTimeout(() => setSaved(false), 2000);
-        }
-
-        return (
-          <div className="a-content">
-
-            <h3 className="a-section-title">🚧 Maintenance mode</h3>
-            <div className="a-settings-card">
-              <div className="a-settings-toggle" style={{marginBottom:12}}>
-                <button className={`a-period-btn ${!form.maintenance ? "active" : ""}`} onClick={() => setForm(f => ({...f, maintenance: false}))}>✅ App online</button>
-                <button className={`a-period-btn ${form.maintenance ? "active" : ""}`} onClick={() => setForm(f => ({...f, maintenance: true}))}>🚧 Maintenance</button>
-              </div>
-              <div className="a-settings-sublabel">Quick presets</div>
-              <div className="a-preset-btns">
-                {["Back in 10 minutes 🎾","Courts closed today — see you tomorrow!","1 court available today — court 2 closed","Over 10 minuten terug 🎾","Banen vandaag gesloten — tot morgen!","Vandaag 1 baan beschikbaar — baan 2 gesloten"].map(msg => (
-                  <button key={msg} className="a-preset-btn" onClick={() => setForm(f => ({...f, maintenanceMsg: msg}))}>{msg}</button>
-                ))}
-              </div>
-              <div className="a-settings-sublabel" style={{marginTop:10}}>Custom message</div>
-              <input className="a-settings-input" style={{marginTop:6}} value={form.maintenanceMsg}
-                onChange={e => setForm(f => ({...f, maintenanceMsg: e.target.value}))}
-                placeholder="e.g. Back in 10 minutes"/>
-            </div>
-
-            <h3 className="a-section-title">👋 Welcome message</h3>
-            <div className="a-settings-card">
-              <div className="a-settings-sublabel">Banner shown at top of app. Leave empty to hide.</div>
-              <input className="a-settings-input" style={{marginTop:6}} value={form.welcomeMsg}
-                onChange={e => setForm(f => ({...f, welcomeMsg: e.target.value}))}
-                placeholder="e.g. Court 2 closed today"/>
-            </div>
-
-            <h3 className="a-section-title">⏱ Match durations</h3>
-            <div className="a-settings-card">
-              <div className="a-settings-row">
-                <div className="a-settings-field">
-                  <div className="a-settings-sublabel">Singles (min)</div>
-                  <input className="a-settings-input" type="number" min="15" max="120" step="5"
-                    value={form.singlesDuration} onChange={e => setForm(f => ({...f, singlesDuration: parseInt(e.target.value)}))}/>
-                </div>
-                <div className="a-settings-field">
-                  <div className="a-settings-sublabel">Doubles (min)</div>
-                  <input className="a-settings-input" type="number" min="15" max="120" step="5"
-                    value={form.doublesDuration} onChange={e => setForm(f => ({...f, doublesDuration: parseInt(e.target.value)}))}/>
-                </div>
-              </div>
-              <div className="a-settings-field" style={{marginTop:10}}>
-                <div className="a-settings-sublabel">Overtime before "court free?" banner (min)</div>
-                <input className="a-settings-input" type="number" min="1" max="30"
-                  value={form.overtimeClaimMin} onChange={e => setForm(f => ({...f, overtimeClaimMin: parseInt(e.target.value)}))}/>
-              </div>
-            </div>
-
-            <h3 className="a-section-title">📍 Geolocation</h3>
-            <div className="a-settings-card">
-              <div className="a-settings-toggle" style={{marginBottom:12}}>
-                <button className={`a-period-btn ${!form.testMode ? "active" : ""}`} onClick={() => setForm(f => ({...f, testMode: false}))}>🎾 Real — Westerpark</button>
-                <button className={`a-period-btn ${form.testMode ? "active" : ""}`} onClick={() => setForm(f => ({...f, testMode: true}))}>🧪 Test mode</button>
-              </div>
-              {form.testMode && <div className="a-settings-note">⚠️ Geo check bypassed. Switch back before going live!</div>}
-              <div className="a-settings-field" style={{marginTop:10}}>
-                <div className="a-settings-sublabel">Detection radius (meters)</div>
-                <input className="a-settings-input" type="number" min="50" max="1000" step="10"
-                  value={form.geoRadius} onChange={e => setForm(f => ({...f, geoRadius: parseInt(e.target.value)}))}/>
-              </div>
-            </div>
-
-            <button className="a-end-session-btn"
-              style={{width:"100%",padding:14,fontSize:14,marginTop:4,
-                background: saved ? "rgba(128,164,120,0.2)" : "",
-                borderColor: saved ? "var(--court-green)" : "",
-                color: saved ? "var(--court-green)" : ""}}
-              onClick={save} disabled={savingSettings}>
-              {saved ? "✅ Saved!" : savingSettings ? "Saving..." : "💾 Save all settings"}
-            </button>
-          </div>
-        );
-      })()}
+      {tab === "settings" && <SettingsTab db={db} settings={settings} setSavingSettings={setSavingSettings} savingSettings={savingSettings}/>}
 
       {tab === "courts" && (
         <div className="a-content">
