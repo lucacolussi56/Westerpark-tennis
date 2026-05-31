@@ -133,8 +133,9 @@ function FeedbackModal({ t, onClose }) {
         {sent ? (
           <div style={{textAlign:"center",padding:"20px 0"}}>
             <div style={{fontSize:48,marginBottom:16}}>🎾</div>
-            <div style={{fontSize:18,color:"#4ade80",fontFamily:"'Archivo Black',sans-serif",marginBottom:8}}>{t.feedbackThanks}</div>
-            <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",lineHeight:1.5}}>Your feedback helps make this app better for the Westerpark tennis community.</div>
+            <div style={{fontSize:18,color:"#4ade80",fontFamily:"'Archivo Black',sans-serif",marginBottom:8}}>Thank you! 🙏</div>
+            <div style={{fontSize:14,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginBottom:8}}>{t.feedbackThanks || "Thanks for your feedback!"}</div>
+            <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",lineHeight:1.5}}>Your suggestions help make this app better for the whole Westerpark tennis community.</div>
           </div>
         ) : (
           <>
@@ -403,7 +404,7 @@ export default function App() {
 
       <div className="about-link-wrap">
         <button className="about-link" onClick={() => setShowAbout(true)}>ℹ️ {t.aboutLink}</button>
-        <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>{t.feedbackLink}</button>
+        <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>💬 {t.feedbackLink || "Give feedback"}</button>
       </div>
 
       {screen === "join" && (
