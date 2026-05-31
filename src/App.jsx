@@ -3,7 +3,7 @@ import {
   collection, doc, onSnapshot, setDoc, deleteDoc,
   updateDoc, query, orderBy, getDocs, addDoc
 } from "firebase/firestore";
-import { db, analytics, logEvent } from "./firebase";
+import { db, analytics, logEvent, messaging, requestNotificationPermission, onMessage } from "./firebase";
 import { translations } from "./i18n";
 
 const WESTERPARK_COORDS = { lat: 52.387583, lng: 4.875667 };
@@ -219,9 +219,18 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(false);
 
   // Track page view
   useEffect(() => { logEvent(analytics, "page_view"); }, []);
+
+  // Handle foreground push notifications
+  useEffect(() => {
+    const unsub = onMessage(messaging, (payload) => {
+      notify(payload.notification?.body || "🎾 It's your turn!");
+    });
+    return unsub;
+  }, []);
 
   function changeLang(l) {
     setLang(l);
@@ -252,14 +261,29 @@ export default function App() {
   useEffect(() => {
     const q = query(collection(db, "queue"), orderBy("joinedAt", "asc"));
     const unsub = onSnapshot(q, snap => {
-      setQueue(snap.docs.map((d, i) => ({
+      const newQueue = snap.docs.map((d, i) => ({
         id: d.id, ...d.data(),
         joinedAt: d.data().joinedAt?.toMillis?.() || d.data().joinedAt,
         position: i + 1,
-      })));
+      }));
+      setQueue(newQueue);
+      // Check if our entry has a notify trigger
+      if (myEntryId) {
+        const myEntry = newQueue.find(q => q.id === myEntryId);
+        if (myEntry?.notify) {
+          // Show browser notification if permission granted
+          if (Notification.permission === "granted") {
+            new Notification("🎾 It's your turn!", {
+              body: "A court is free — head to Westerpark!",
+              icon: "/tennis-icon.png",
+              tag: "westerpark-turn",
+            });
+          }
+        }
+      }
     });
     return unsub;
-  }, []);
+  }, [myEntryId]);
 
   useEffect(() => {
     if (!myEntryId) return;
@@ -297,6 +321,12 @@ export default function App() {
     setGeoStatus("idle");
     notify(t.notifJoined);
     logEvent(analytics, "join_queue", { type: form.type });
+    // Request notification permission and save token
+    const token = await requestNotificationPermission();
+    if (token) {
+      await updateDoc(doc(db, "queue", id), { fcmToken: token });
+      setNotifEnabled(true);
+    }
     localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
   }
 
@@ -323,6 +353,11 @@ export default function App() {
   }
 
   async function markDone(courtId) {
+    // Find first person in queue and set a notification trigger
+    const firstInQueue = queue[0];
+    if (firstInQueue) {
+      await updateDoc(doc(db, "queue", firstInQueue.id), { notify: Date.now() });
+    }
     await updateDoc(doc(db, "courts", String(courtId)), { status: "free", players: null, type: null, startedAt: null });
     setMyPlaying(null);
     localStorage.removeItem("myPlaying");
