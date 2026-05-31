@@ -247,6 +247,7 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [form, setForm] = useState({ name: "", type: "singles" });
   const [geoStatus, setGeoStatus] = useState("idle");
+  const [geoStatusSomeone, setGeoStatusSomeone] = useState("idle");
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
@@ -280,10 +281,11 @@ export default function App() {
         if (!existing.includes(String(id))) {
           await setDoc(doc(db, "courts", String(id)), { status: "free", players: null, type: null, startedAt: null });
         }
+        // Never overwrite existing court data on page load
       }
     }
     initCourts();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "courts"), snap => {
@@ -363,6 +365,23 @@ export default function App() {
       setNotifEnabled(true);
     }
     localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
+  }
+
+  async function markCourtOccupied() {
+    await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
+      status: "occupied", players: "Unknown player", type: form.type, startedAt: Date.now()
+    });
+    if (!myEntryId) {
+      const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+      await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() - 1 });
+      setMyEntryId(id);
+      localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
+      notify(t.notifJoined);
+    } else {
+      notify("✅ Court marked as occupied!");
+    }
+    setSomeonePlayCourt(null);
+    setGeoStatusSomeone("idle");
   }
 
   async function claimCourt(courtId) {
@@ -453,40 +472,59 @@ export default function App() {
       {showFeedback && <FeedbackModal t={t} onClose={() => setShowFeedback(false)}/>}
       {showFairPlay && <FairPlayModal t={t} onClose={() => setShowFairPlay(false)}/>}
       {someonePlayCourt && (
-        <div className="modal-overlay" onClick={() => setSomeonePlayCourt(null)}>
+        <div className="modal-overlay" onClick={() => { setSomeonePlayCourt(null); setGeoStatusSomeone("idle"); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>👀 {t.someoneIsPlayingTitle || "Someone is playing?"}</h3>
-            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:20}}>
+            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:12}}>
               {t.someoneIsPlayingText || "Mark this court as occupied and join the queue as first in line."}
             </p>
-            <label>{t.yourName}</label>
-            <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
-              placeholder={t.namePlaceholder} autoFocus/>
-            <label>{t.matchType}</label>
-            <div className="type-toggle">
-              <button className={form.type === "singles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "singles"}))}>{t.singlesTime}</button>
-              <button className={form.type === "doubles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "doubles"}))}>{t.doublesTime}</button>
-            </div>
-            <button className="confirm-btn" disabled={!form.name.trim()} onClick={async () => {
-              if (!form.name.trim()) return;
-              await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
-                status: "occupied", players: "Unknown player", type: form.type, startedAt: Date.now()
-              });
-              // Only add to queue if not already in queue
-              if (!myEntryId) {
-                const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-                await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() - 1 });
-                setMyEntryId(id);
-                localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
-                notify(t.notifJoined);
-              } else {
-                notify("✅ Court marked as occupied!");
-              }
-              setSomeonePlayCourt(null);
-              setGeoStatus("idle");
-            }}>
-              {t.someoneIsPlayingConfirm || "Mark as occupied & join queue →"}
-            </button>
+
+            {geoStatusSomeone === "idle" && (
+              <>
+                <label>{t.yourName}</label>
+                <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
+                  placeholder={t.namePlaceholder} autoFocus/>
+                <label>{t.matchType}</label>
+                <div className="type-toggle">
+                  <button className={form.type === "singles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "singles"}))}>{t.singlesTime}</button>
+                  <button className={form.type === "doubles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "doubles"}))}>{t.doublesTime}</button>
+                </div>
+                <button className="confirm-btn" disabled={!form.name.trim()} onClick={() => {
+                  if (!form.name.trim()) return;
+                  setGeoStatusSomeone("checking");
+                  if (!navigator.geolocation) { setGeoStatusSomeone("ok"); return; }
+                  navigator.geolocation.getCurrentPosition(
+                    pos => {
+                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, WESTERPARK_COORDS.lat, WESTERPARK_COORDS.lng);
+                      setGeoStatusSomeone(dist <= MAX_DISTANCE_METERS ? "ok" : "far");
+                    },
+                    () => setGeoStatusSomeone("denied"),
+                    { timeout: 6000, maximumAge: 30000 }
+                  );
+                }}>{t.verifyLocation}</button>
+              </>
+            )}
+
+            {geoStatusSomeone === "checking" && <div className="geo-status">{t.checking}</div>}
+            {geoStatusSomeone === "far" && <div className="geo-status error">{t.tooFar}</div>}
+
+            {geoStatusSomeone === "denied" && (
+              <div className="geo-status warning">
+                {t.locationDenied}
+                <button className="confirm-btn" style={{marginTop:12}} disabled={!form.name.trim()} onClick={async () => {
+                  await markCourtOccupied();
+                }}>{t.someoneIsPlayingConfirm || "Mark as occupied & join queue →"}</button>
+              </div>
+            )}
+
+            {geoStatusSomeone === "ok" && (
+              <div className="geo-status success">
+                ✅ {t.locationOk}
+                <button className="confirm-btn" style={{marginTop:12}} onClick={async () => {
+                  await markCourtOccupied();
+                }}>{t.someoneIsPlayingConfirm || "Mark as occupied & join queue →"}</button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -550,7 +588,10 @@ export default function App() {
                 <div className="court-name-centered">{court.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
                 <div className="free-label">{t.free}</div>
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
-                {!isMyTurn && <button className="someone-btn" onClick={() => { checkGeo(() => setSomeonePlayCourt(court.id)); }}>{t.someoneIsPlaying || "Someone is playing →"}</button>}
+                {!isMyTurn && <button className="someone-btn" onClick={() => {
+                  setSomeonePlayCourt(court.id);
+                  setGeoStatusSomeone("idle");
+                }}>{t.someoneIsPlaying || "Someone is playing →"}</button>}
               </div>
             )
           )}
