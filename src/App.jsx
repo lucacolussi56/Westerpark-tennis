@@ -396,6 +396,30 @@ export default function App() {
     if (myEntry.position === 1 && freeCourts.length > 0) notify(t.notifYourTurn);
   }, [queue, courts, myEntryId]);
 
+  // Queue claim timeout — runs every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const freeCourts = courts.filter(c => c.status === "free");
+      if (freeCourts.length === 0 || queue.length === 0) return;
+      const first = queue[0];
+      if (!first?.notifiedAt) return;
+      const waitMin = (Date.now() - first.notifiedAt) / 60000;
+      const limit = appSettings.queueClaimMin || 10;
+      if (waitMin >= limit) {
+        await deleteDoc(doc(db, "queue", first.id));
+        if (queue[1]) {
+          await updateDoc(doc(db, "queue", queue[1].id), { notifiedAt: Date.now() });
+        }
+        if (first.id === myEntryId) {
+          setMyEntryId(null);
+          localStorage.removeItem("myQueueEntry");
+          notify("⏰ You took too long — your spot was given to the next person.");
+        }
+      }
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [queue, courts, appSettings.queueClaimMin, myEntryId]);
+
   function notify(msg) {
     setNotification(msg);
     setTimeout(() => setNotification(null), 5000);
