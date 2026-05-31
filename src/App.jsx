@@ -107,6 +107,25 @@ function AboutModal({ t, onClose }) {
   );
 }
 
+function FairPlayModal({ t, onClose }) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal about-modal" onClick={e => e.stopPropagation()}>
+        <h3>{t.fairPlayTitle}</h3>
+        <div className="fairplay-list">
+          {t.fairPlayRules.map((rule, i) => (
+            <div key={i} className="fairplay-item">
+              <span className="fairplay-emoji">{rule.emoji}</span>
+              <span className="fairplay-text">{rule.text}</span>
+            </div>
+          ))}
+        </div>
+        <button className="confirm-btn" onClick={onClose}>{t.close}</button>
+      </div>
+    </div>
+  );
+}
+
 function FeedbackModal({ t, onClose }) {
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
@@ -219,6 +238,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showFairPlay, setShowFairPlay] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(false);
 
   // Track page view
@@ -386,6 +406,7 @@ export default function App() {
       {notification && <div className="notification">{notification}</div>}
       {showAbout && <AboutModal t={t} onClose={() => setShowAbout(false)}/>}
       {showFeedback && <FeedbackModal t={t} onClose={() => setShowFeedback(false)}/>}
+      {showFairPlay && <FairPlayModal t={t} onClose={() => setShowFairPlay(false)}/>}
 
       <header>
         <div className="logo">🎾</div>
@@ -446,6 +467,7 @@ export default function App() {
 
       <div className="about-link-wrap">
         <button className="about-link" onClick={() => setShowAbout(true)}>ℹ️ {t.aboutLink}</button>
+        <button className="about-link" onClick={() => setShowFairPlay(true)}>🎾 {t.fairPlayLink || "Fair play"}</button>
         <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>{t.feedbackLink || "💬 Give feedback"}</button>
       </div>
 
@@ -548,6 +570,10 @@ const styles = `
 
   .about-link-wrap{text-align:center;padding:16px;position:relative;z-index:1;display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
   .feedback-link{color:rgba(255,255,255,0.6)!important;text-decoration:none!important;background:rgba(74,222,128,0.08)!important;border:1px solid rgba(74,222,128,0.2)!important;padding:10px 18px!important;border-radius:20px!important;font-size:13px!important;font-weight:500!important}
+  .fairplay-list{display:flex;flex-direction:column;gap:14px;margin-bottom:8px}
+  .fairplay-item{display:flex;gap:12px;align-items:flex-start}
+  .fairplay-emoji{font-size:20px;flex-shrink:0;margin-top:1px}
+  .fairplay-text{font-size:13px;color:rgba(255,255,255,0.7);line-height:1.6}
   .feedback-subtitle{font-size:13px;color:rgba(255,255,255,0.4);line-height:1.5;margin-bottom:4px}
   .stars-hint{text-align:center;font-size:11px;color:rgba(255,255,255,0.25);font-family:'DM Mono',monospace;letter-spacing:1px;margin-top:-8px}
   .stars-row{display:flex;justify-content:center;gap:8px;margin:16px 0}
