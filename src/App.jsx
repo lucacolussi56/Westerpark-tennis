@@ -204,7 +204,7 @@ function PlayingScreen({ myPlaying, onDone, t }) {
 }
 
 export default function App() {
-  const [lang, setLang] = useState(() => localStorage.getItem("lang") || "en");
+  const [lang, setLang] = useState(() => localStorage.getItem("lang") || "nl");
   const t = translations[lang];
 
   const [courts, setCourts] = useState([]);
@@ -404,7 +404,7 @@ export default function App() {
 
       <div className="about-link-wrap">
         <button className="about-link" onClick={() => setShowAbout(true)}>ℹ️ {t.aboutLink}</button>
-        <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>💬 {t.feedbackLink || "Give feedback"}</button>
+        <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>{t.feedbackLink || "💬 Give feedback"}</button>
       </div>
 
       {screen === "join" && (
