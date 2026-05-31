@@ -45,7 +45,7 @@ function CourtTimer({ court, t, singlesDuration, doublesDuration }) {
   return (
     <div className={`court-card ${overTime ? "over" : pct > 80 ? "warning" : "normal"}`}>
       <div className="court-header">
-        <span className="court-label">COURT {court.id}</span>
+        <span className="court-label">{(court.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")).toUpperCase()}</span>
         <span className={`court-badge ${court.type}`}>
           {court.type === "singles" ? t.singles : t.doubles}
         </span>
@@ -200,7 +200,7 @@ function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration 
         <div className="logo">🎾</div>
         <div className="header-text">
           <div className="site-name">{t.playing}</div>
-          <div className="site-sub">{t.court} {myPlaying.courtId}</div>
+          <div className="site-sub">{myPlaying.courtId === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
         </div>
       </header>
       <div className="big-timer">
@@ -435,7 +435,7 @@ export default function App() {
     });
     await deleteDoc(doc(db, "queue", myEntryId));
     setMyEntryId(null);
-    const playing = { courtId, startedAt: Date.now(), type: myEntry.type };
+    const playing = { courtId, startedAt: Date.now(), type: myEntry.type, playerName: myEntry.name };
     setMyPlaying(playing);
     localStorage.removeItem("myQueueEntry");
     localStorage.setItem("myPlaying", JSON.stringify(playing));
@@ -457,7 +457,7 @@ export default function App() {
     await updateDoc(doc(db, "courts", String(courtId)), { status: "occupied", players: myEntry.name, type: myEntry.type, startedAt: Date.now() });
     await deleteDoc(doc(db, "queue", myEntryId));
     setMyEntryId(null);
-    const playing = { courtId, startedAt: Date.now(), type: myEntry.type };
+    const playing = { courtId, startedAt: Date.now(), type: myEntry.type, playerName: myEntry.name };
     setMyPlaying(playing);
     localStorage.removeItem("myQueueEntry");
     localStorage.setItem("myPlaying", JSON.stringify(playing));
@@ -469,8 +469,13 @@ export default function App() {
     // Save session to history
     if (myPlaying) {
       const durationMin = Math.floor((Date.now() - myPlaying.startedAt) / 60000);
+      // Get name from myPlaying, localStorage, or court data
+      const saved = localStorage.getItem("myQueueEntry");
+      const savedName = saved ? JSON.parse(saved).name : null;
+      const court = courts.find(c => c.id === courtId);
+      const playerName = myPlaying.playerName || savedName || court?.players || "Unknown";
       await addDoc(collection(db, "sessions"), {
-        name: queue.find(q => q.id === myEntryId)?.name || myPlaying.players || "Unknown",
+        name: playerName,
         type: myPlaying.type,
         courtId,
         startedAt: myPlaying.startedAt,
