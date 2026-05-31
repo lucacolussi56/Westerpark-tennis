@@ -6,8 +6,9 @@ import {
 import { db, analytics, logEvent, messaging, requestNotificationPermission, onMessage } from "./firebase";
 import { translations } from "./i18n";
 
-const WESTERPARK_COORDS = { lat: 52.387583, lng: 4.875667 };
-const MAX_DISTANCE_METERS = 250;
+// Coordinates loaded dynamically from Firebase settings
+let GEO_COORDS = { lat: 52.387583, lng: 4.875667 };
+let MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
 const OVERTIME_CLAIM_MIN = 5;   // minuti di overtime prima che il primo in fila possa liberare il campo
 
@@ -251,6 +252,8 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
+  const [geoSettings, setGeoSettings] = useState(null);
+  const [testMode, setTestMode] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showFairPlay, setShowFairPlay] = useState(false);
   const [showConfirmLeave, setShowConfirmLeave] = useState(false);
@@ -259,6 +262,17 @@ export default function App() {
 
   // Track page view
   useEffect(() => { logEvent(analytics, "page_view"); }, []);
+
+  // Load geo settings from Firebase
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "geo"), snap => {
+      const isTest = snap.exists() && snap.data().testMode === true;
+      setTestMode(isTest);
+      GEO_COORDS = { lat: 52.387583, lng: 4.875667 };
+      MAX_DISTANCE_METERS = 250;
+    });
+    return unsub;
+  }, []);
 
   // Handle foreground push notifications
   useEffect(() => {
@@ -337,10 +351,15 @@ export default function App() {
 
   function checkGeo(callback) {
     setGeoStatus("checking");
+    // In test mode, simulate successful geo check after a short delay
+    if (testMode) {
+      setTimeout(() => { setGeoStatus("ok"); callback(); }, 800);
+      return;
+    }
     if (!navigator.geolocation) { setGeoStatus("ok"); callback(); return; }
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, WESTERPARK_COORDS.lat, WESTERPARK_COORDS.lng);
+        const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
         if (dist <= MAX_DISTANCE_METERS) { setGeoStatus("ok"); callback(); }
         else setGeoStatus("far");
       },
@@ -506,10 +525,11 @@ export default function App() {
                 <button className="confirm-btn" disabled={!form.name.trim()} onClick={() => {
                   if (!form.name.trim()) return;
                   setGeoStatusSomeone("checking");
+                  if (testMode) { setTimeout(() => setGeoStatusSomeone("ok"), 800); return; }
                   if (!navigator.geolocation) { setGeoStatusSomeone("ok"); return; }
                   navigator.geolocation.getCurrentPosition(
                     pos => {
-                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, WESTERPARK_COORDS.lat, WESTERPARK_COORDS.lng);
+                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
                       setGeoStatusSomeone(dist <= MAX_DISTANCE_METERS ? "ok" : "far");
                     },
                     () => setGeoStatusSomeone("denied"),

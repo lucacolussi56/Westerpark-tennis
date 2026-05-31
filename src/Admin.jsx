@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   collection, onSnapshot, query, orderBy,
-  deleteDoc, doc, updateDoc, setDoc, where
+  deleteDoc, doc, updateDoc, setDoc, getDoc, where
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -70,6 +70,8 @@ export default function Admin() {
   const [stats, setStats] = useState({ total: 0, avgRating: 0 });
   const [sessions, setSessions] = useState([]);
   const [period, setPeriod] = useState(7);
+  const [settings, setSettings] = useState(null);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [tab, setTab] = useState("overview");
   const [deleting, setDeleting] = useState(null);
 
@@ -115,7 +117,16 @@ export default function Admin() {
       }
     );
 
-    return () => { unsubFeedback(); unsubCourts(); unsubQueue(); unsubSessions(); };
+    const unsubSettings = onSnapshot(doc(db, "settings", "geo"), snap => {
+      if (snap.exists()) setSettings(snap.data());
+      else setSettings({
+        realLat: 52.387583, realLng: 4.875667,
+        testLat: 52.361083, testLng: 4.859694,
+        mode: "real", radius: 250
+      });
+    });
+
+    return () => { unsubFeedback(); unsubCourts(); unsubQueue(); unsubSessions(); unsubSettings(); };
   }, [authed]);
 
   async function deleteFeedback(id) {
@@ -174,9 +185,9 @@ export default function Admin() {
       </header>
 
       <div className="a-tabs">
-        {["overview", "feedback", "courts", "leaderboard"].map(t => (
+        {["overview", "feedback", "courts", "leaderboard", "settings"].map(t => (
           <button key={t} className={`a-tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : t === "courts" ? "🎾 Live" : "🏆 Leaderboard"}
+            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : t === "courts" ? "🎾 Live" : t === "leaderboard" ? "🏆 Leaderboard" : "⚙️ Settings"}
           </button>
         ))}
       </div>
@@ -431,6 +442,48 @@ export default function Admin() {
         );
       })()}
 
+      {tab === "settings" && (
+        <div className="a-content">
+          <h3 className="a-section-title">📍 Geolocation mode</h3>
+          <div className="a-settings-card">
+            <p style={{fontSize:13,color:"var(--text-muted)",lineHeight:1.6,marginBottom:16}}>
+              Switch between real mode (Westerpark courts) and test mode (your location at home) for testing the app.
+            </p>
+            <div className="a-settings-toggle">
+              <button
+                className={`a-period-btn ${!settings?.testMode ? "active" : ""}`}
+                onClick={async () => {
+                  setSavingSettings(true);
+                  await setDoc(doc(db, "settings", "geo"), { testMode: false });
+                  setSavingSettings(false);
+                }}>
+                🎾 Real — Westerpark
+              </button>
+              <button
+                className={`a-period-btn ${settings?.testMode ? "active" : ""}`}
+                onClick={async () => {
+                  setSavingSettings(true);
+                  await setDoc(doc(db, "settings", "geo"), { testMode: true });
+                  setSavingSettings(false);
+                }}>
+                🧪 Test — Home
+              </button>
+            </div>
+            {savingSettings && <div style={{fontSize:11,color:"var(--text-faint)",marginTop:8,fontFamily:"'DM Mono',monospace"}}>Saving...</div>}
+            {settings?.testMode && (
+              <div className="a-settings-note" style={{marginTop:12}}>
+                ⚠️ Test mode active — geolocation uses your home coordinates (52.361083, 4.859694). Remember to switch back before going live!
+              </div>
+            )}
+            {!settings?.testMode && (
+              <div className="a-settings-note" style={{marginTop:12}}>
+                ✅ Real mode active — only people at Westerpark can join the queue.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {tab === "courts" && (
         <div className="a-content">
           <h3 className="a-section-title">Courts</h3>
@@ -664,5 +717,15 @@ const adminStyles = `
   .a-bar { width: 100%; background: var(--court-green); border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.3s; opacity: 0.8; }
   .a-bar-label { font-size: 9px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
   .a-bar-count { font-size: 9px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+  .a-settings-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .a-settings-label { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; letter-spacing: 1px; margin-bottom: 10px; }
+  .a-settings-sublabel { font-size: 10px; color: var(--text-faint); font-family: 'DM Mono', monospace; margin-bottom: 4px; }
+  .a-settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .a-settings-field { display: flex; flex-direction: column; }
+  .a-settings-input { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--text); font-size: 13px; font-family: 'DM Mono', monospace; outline: none; width: 100%; }
+  .a-settings-input:focus { border-color: var(--primary); }
+  .a-settings-note { font-size: 11px; color: var(--text-faint); margin-top: 8px; line-height: 1.5; }
+  .a-settings-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+  .a-settings-use-btn { background: none; border: none; color: var(--primary); font-size: 11px; cursor: pointer; padding: 0 4px; text-decoration: underline; }
   .a-peak-badge { display: inline-block; background: rgba(180,100,99,0.15); border: 1px solid rgba(180,100,99,0.3); color: var(--primary); font-size: 12px; padding: 4px 12px; border-radius: 20px; margin-bottom: 12px; font-family: 'DM Mono', monospace; }
 `;
