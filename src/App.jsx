@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import {
   collection, doc, onSnapshot, setDoc, deleteDoc,
-  updateDoc, query, orderBy, getDocs
+  updateDoc, query, orderBy, getDocs, addDoc
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { translations } from "./i18n";
 
-const WESTERPARK_COORDS = { lat: 52.38768, lng: 4.86969 };
+const WESTERPARK_COORDS = { lat: 52.387583, lng: 4.875667 };
 const MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
 
@@ -107,6 +107,60 @@ function AboutModal({ t, onClose }) {
   );
 }
 
+function FeedbackModal({ t, onClose }) {
+  const [rating, setRating] = useState(0);
+  const [hovered, setHovered] = useState(0);
+  const [text, setText] = useState("");
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  async function submitFeedback() {
+    if (rating === 0) return;
+    setSending(true);
+    await addDoc(collection(db, "feedback"), {
+      rating,
+      text: text.trim(),
+      lang: localStorage.getItem("lang") || "en",
+      submittedAt: Date.now(),
+    });
+    setSent(true);
+    setSending(false);
+    setTimeout(onClose, 2000);
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        {sent ? (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:40,marginBottom:12}}>🎾</div>
+            <div style={{fontSize:16,color:"#4ade80",fontFamily:"'Archivo Black',sans-serif"}}>{t.feedbackThanks}</div>
+          </div>
+        ) : (
+          <>
+            <h3>{t.feedbackTitle}</h3>
+            <div className="stars-row">
+              {[1,2,3,4,5].map(s => (
+                <button key={s} className={"star-btn " + (s <= (hovered || rating) ? "active" : "")}
+                  onClick={() => setRating(s)}
+                  onMouseEnter={() => setHovered(s)}
+                  onMouseLeave={() => setHovered(0)}>★</button>
+              ))}
+            </div>
+            <label>{t.feedbackLabel}</label>
+            <textarea value={text} onChange={e => setText(e.target.value)}
+              placeholder={t.feedbackPlaceholder} rows={4}/>
+            <button className="confirm-btn" onClick={submitFeedback}
+              disabled={rating === 0 || sending}>
+              {sending ? "..." : t.feedbackSend}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PlayingScreen({ myPlaying, onDone, t }) {
   const limit = myPlaying.type === "singles" ? 45 : 60;
   const { elapsedMin, elapsedSec, remainMin, remainSec, overTime, pct } = useTimer(myPlaying.startedAt, limit);
@@ -160,6 +214,7 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAbout, setShowAbout] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   function changeLang(l) {
     setLang(l);
@@ -285,6 +340,7 @@ export default function App() {
       <style>{styles}</style>
       {notification && <div className="notification">{notification}</div>}
       {showAbout && <AboutModal t={t} onClose={() => setShowAbout(false)}/>}
+      {showFeedback && <FeedbackModal t={t} onClose={() => setShowFeedback(false)}/>}
 
       <header>
         <div className="logo">🎾</div>
@@ -345,6 +401,7 @@ export default function App() {
 
       <div className="about-link-wrap">
         <button className="about-link" onClick={() => setShowAbout(true)}>ℹ️ {t.aboutLink}</button>
+        <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>💬 {t.feedbackLink}</button>
       </div>
 
       {screen === "join" && (
@@ -443,7 +500,14 @@ const styles = `
   .join-section{padding:16px 16px 0;position:relative;z-index:1}
   .join-big-btn{width:100%;background:#4ade80;color:#0a0f0a;border:none;border-radius:14px;padding:18px;font-family:'Archivo Black',sans-serif;font-size:15px;letter-spacing:1px;cursor:pointer;transition:transform 0.15s,opacity 0.15s}
   .join-big-btn:active{transform:scale(0.98);opacity:0.9}
-  .about-link-wrap{text-align:center;padding:16px;position:relative;z-index:1}
+
+  .about-link-wrap{text-align:center;padding:16px;position:relative;z-index:1;display:flex;justify-content:center;gap:20px;flex-wrap:wrap}
+  .feedback-link{color:rgba(255,255,255,0.3)!important}
+  .stars-row{display:flex;justify-content:center;gap:8px;margin:16px 0}
+  .star-btn{background:none;border:none;font-size:36px;cursor:pointer;color:rgba(255,255,255,0.15);transition:color 0.15s;padding:0;line-height:1}
+  .star-btn.active{color:#ffcc00}
+  .modal textarea{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;color:white;font-size:14px;font-family:'Archivo',sans-serif;outline:none;resize:none;line-height:1.5}
+  .modal textarea:focus{border-color:#4ade80}
   .about-link{background:none;border:none;color:rgba(255,255,255,0.3);font-size:12px;cursor:pointer;font-family:'Archivo',sans-serif;text-decoration:underline}
   .about-link:hover{color:rgba(255,255,255,0.6)}
   .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);z-index:100;display:flex;align-items:flex-end;padding:20px}
