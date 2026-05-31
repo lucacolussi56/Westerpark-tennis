@@ -127,7 +127,7 @@ export default function Admin() {
       <header className="a-header">
         <div className="a-logo">🎾</div>
         <div>
-          <div className="a-title">Admin</div>
+          <div className="a-title"><span>Wester</span><span>park</span> Admin</div>
           <div className="a-sub">Westerpark Tennis</div>
         </div>
         <button className="a-logout" onClick={() => setAuthed(false)}>Logout</button>
@@ -202,7 +202,7 @@ export default function Admin() {
       )}
 
       {tab === "leaderboard" && (() => {
-        const cutoff = Date.now() - period * 24 * 60 * 60 * 1000;
+        const cutoff = period === 0 ? 0 : Date.now() - period * 24 * 60 * 60 * 1000;
         const filtered = sessions.filter(s => s.endedAt >= cutoff);
 
         // Build leaderboard
@@ -221,10 +221,10 @@ export default function Admin() {
         return (
           <div className="a-content">
             <div className="a-period-toggle">
-              {[1, 7, 30].map(p => (
+              {[1, 7, 30, 365, 0].map(p => (
                 <button key={p} className={`a-period-btn ${period === p ? "active" : ""}`}
                   onClick={() => setPeriod(p)}>
-                  {p === 1 ? "Today" : p === 7 ? "7 days" : "30 days"}
+                  {p === 1 ? "Today" : p === 7 ? "7 days" : p === 30 ? "30 days" : p === 365 ? "Year" : "All time"}
                 </button>
               ))}
             </div>
@@ -240,7 +240,62 @@ export default function Admin() {
               </div>
             </div>
 
-            <h3 className="a-section-title">🏆 Leaderboard</h3>
+            {/* Day of week stats */}
+            <h3 className="a-section-title">📅 Busiest days</h3>
+            {(() => {
+              const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+              const dayCounts = Array(7).fill(0);
+              filtered.forEach(s => {
+                const d = new Date(s.endedAt).getDay();
+                dayCounts[d]++;
+              });
+              const maxDay = Math.max(...dayCounts, 1);
+              return (
+                <div className="a-bar-chart">
+                  {days.map((day, i) => (
+                    <div key={day} className="a-bar-col">
+                      <div className="a-bar-wrap">
+                        <div className="a-bar" style={{height: `${(dayCounts[i]/maxDay)*60}px`}}/>
+                      </div>
+                      <div className="a-bar-label">{day}</div>
+                      <div className="a-bar-count">{dayCounts[i]}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Hour of day stats */}
+            <h3 className="a-section-title" style={{marginTop:20}}>🕐 Busiest hours</h3>
+            {(() => {
+              const hourCounts = Array(24).fill(0);
+              filtered.forEach(s => {
+                const h = new Date(s.endedAt).getHours();
+                hourCounts[h]++;
+              });
+              const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
+              const relevantHours = hourCounts.slice(7, 22); // 7am-10pm
+              const maxHour = Math.max(...relevantHours, 1);
+              return (
+                <>
+                  {filtered.length > 0 && (
+                    <div className="a-peak-badge">Peak time: {peakHour}:00 – {peakHour+1}:00</div>
+                  )}
+                  <div className="a-bar-chart">
+                    {relevantHours.map((count, i) => (
+                      <div key={i} className="a-bar-col">
+                        <div className="a-bar-wrap">
+                          <div className="a-bar" style={{height: `${(count/maxHour)*60}px`, background: i+7 === peakHour ? "var(--primary)" : "var(--court-green)"}}/>
+                        </div>
+                        <div className="a-bar-label">{i+7}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+
+            <h3 className="a-section-title" style={{marginTop:20}}>🏆 Leaderboard</h3>
             {leaderboard.length === 0 && <div className="a-empty">No sessions yet</div>}
             {leaderboard.map((player, i) => (
               <div key={player.name} className="a-leaderboard-item">
@@ -310,68 +365,159 @@ export default function Admin() {
 }
 
 const adminStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Archivo+Black&family=Archivo:wght@400;500&display=swap');
+
+  :root {
+    --bg:           #1a2118;
+    --bg-card:      rgba(255,255,255,0.04);
+    --border:       rgba(255,255,255,0.08);
+    --primary:      #b46463;
+    --primary-glow: rgba(180,100,99,0.3);
+    --court-green:  #80a478;
+    --green-glow:   rgba(128,164,120,0.2);
+    --text:         #f0ede8;
+    --text-muted:   rgba(240,237,232,0.55);
+    --text-faint:   rgba(240,237,232,0.28);
+    --danger:       #ff6b6b;
+    --warning:      #ffaa00;
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0f0a; }
+  body { background: var(--bg); }
 
-  .admin-login { min-height: 100vh; background: #0a0f0a; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .login-box { background: #141a14; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 32px 24px; width: 100%; max-width: 360px; text-align: center; }
+  .admin-login {
+    min-height: 100vh; background: var(--bg);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .login-box {
+    background: #1e2a1e; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; padding: 32px 24px; width: 100%; max-width: 360px; text-align: center;
+  }
   .login-logo { font-size: 40px; margin-bottom: 12px; }
-  .login-box h2 { font-family: 'Archivo Black', sans-serif; color: #e8fce8; font-size: 22px; margin-bottom: 4px; }
-  .login-box p { color: rgba(255,255,255,0.4); font-size: 13px; margin-bottom: 24px; }
-  .login-box input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 14px; color: white; font-size: 16px; outline: none; margin-bottom: 12px; text-align: center; letter-spacing: 4px; }
-  .login-box input:focus { border-color: #4ade80; }
-  .login-error { color: #ff6666; font-size: 12px; margin-bottom: 10px; }
-  .login-box button { width: 100%; background: #4ade80; color: #0a0f0a; border: none; border-radius: 12px; padding: 14px; font-family: 'Archivo Black', sans-serif; font-size: 15px; cursor: pointer; }
+  .login-box h2 { font-family: 'Archivo Black', sans-serif; color: var(--text); font-size: 22px; margin-bottom: 4px; }
+  .login-box p { color: var(--text-faint); font-size: 13px; margin-bottom: 24px; }
+  .login-box input {
+    width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 16px;
+    outline: none; margin-bottom: 12px; text-align: center; letter-spacing: 4px;
+  }
+  .login-box input:focus { border-color: var(--primary); }
+  .login-error { color: var(--primary); font-size: 12px; margin-bottom: 10px; }
+  .login-box button {
+    width: 100%; background: var(--primary); color: white; border: none;
+    border-radius: 12px; padding: 14px; font-family: 'Archivo Black', sans-serif;
+    font-size: 15px; cursor: pointer;
+  }
 
-  .admin { min-height: 100vh; background: #0a0f0a; color: white; font-family: 'Archivo', sans-serif; padding-bottom: 40px; }
-  .a-header { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .admin { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Archivo', sans-serif; padding-bottom: 40px; }
+  .a-header {
+    display: flex; align-items: center; gap: 12px; padding: 16px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(26,33,24,0.9); backdrop-filter: blur(10px);
+  }
   .a-logo { font-size: 24px; }
-  .a-title { font-family: 'Archivo Black', sans-serif; font-size: 16px; color: #e8fce8; }
-  .a-sub { font-size: 11px; color: rgba(255,255,255,0.4); letter-spacing: 1px; }
-  .a-logout { margin-left: auto; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.5); border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .a-title { font-family: 'Archivo Black', sans-serif; font-size: 16px; }
+  .a-title span:first-child { color: var(--primary); }
+  .a-title span:last-child { color: var(--court-green); }
+  .a-sub { font-size: 11px; color: var(--text-faint); letter-spacing: 1px; }
+  .a-logout {
+    margin-left: auto; background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border); color: var(--text-muted);
+    border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
 
-  .a-tabs { display: flex; gap: 8px; padding: 16px; }
-  .a-tab { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 8px 14px; color: rgba(255,255,255,0.5); font-size: 13px; cursor: pointer; transition: all 0.2s; }
-  .a-tab.active { background: rgba(74,222,128,0.15); border-color: #4ade80; color: #4ade80; }
+  .a-tabs { display: flex; gap: 8px; padding: 16px; overflow-x: auto; }
+  .a-tab {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; color: var(--text-muted);
+    font-size: 13px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    font-family: 'Archivo', sans-serif;
+  }
+  .a-tab.active { background: rgba(180,100,99,0.15); border-color: var(--primary); color: var(--primary); }
 
   .a-content { padding: 0 16px; }
   .a-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
-  .a-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; text-align: center; }
-  .a-card-value { font-family: 'Archivo Black', sans-serif; font-size: 28px; color: #4ade80; }
-  .a-card-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; letter-spacing: 1px; }
+  .a-card {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; text-align: center;
+    border-top: 2px solid var(--primary);
+  }
+  .a-card-value { font-family: 'Archivo Black', sans-serif; font-size: 28px; color: var(--primary); }
+  .a-card-label { font-size: 11px; color: var(--text-faint); margin-top: 4px; letter-spacing: 1px; }
 
-  .a-section-title { font-family: 'Archivo Black', sans-serif; font-size: 14px; color: rgba(255,255,255,0.6); margin-bottom: 12px; letter-spacing: 0.5px; }
+  .a-section-title { font-family: 'Archivo Black', sans-serif; font-size: 14px; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.5px; }
   .a-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .a-avg { font-size: 13px; color: #ffcc00; }
-  .a-empty { text-align: center; color: rgba(255,255,255,0.25); font-size: 13px; padding: 20px; }
+  .a-empty { text-align: center; color: var(--text-faint); font-size: 13px; padding: 20px; }
 
-  .a-feedback-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .a-feedback-item {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px; margin-bottom: 10px;
+  }
   .a-feedback-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
   .a-stars { font-size: 18px; letter-spacing: 2px; }
-  .a-feedback-text { font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.5; margin: 8px 0; }
-  .a-feedback-meta { font-size: 11px; color: rgba(255,255,255,0.3); font-family: 'DM Mono', monospace; }
-  .a-delete-btn { background: rgba(255,68,68,0.1); color: #ff6666; border: 1px solid rgba(255,68,68,0.2); border-radius: 6px; padding: 4px 8px; font-size: 12px; cursor: pointer; }
+  .a-feedback-text { font-size: 14px; color: var(--text-muted); line-height: 1.5; margin: 8px 0; }
+  .a-feedback-meta { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+  .a-delete-btn {
+    background: rgba(255,107,107,0.1); color: var(--danger);
+    border: 1px solid rgba(255,107,107,0.2); border-radius: 6px;
+    padding: 4px 8px; font-size: 12px; cursor: pointer;
+  }
 
-  .a-court-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-  .a-court-item.occupied { border-color: rgba(255,68,68,0.3); }
+  .a-court-item {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .a-court-item.occupied { border-color: rgba(180,100,99,0.3); }
   .a-court-name { font-weight: 600; font-size: 15px; margin-bottom: 4px; }
-  .a-court-status { font-size: 13px; color: rgba(255,255,255,0.6); }
-  .a-court-time { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 4px; font-family: 'DM Mono', monospace; }
-  .a-free-btn { background: rgba(74,222,128,0.15); border: 1px solid rgba(74,222,128,0.3); color: #4ade80; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+  .a-court-status { font-size: 13px; color: var(--text-muted); }
+  .a-court-time { font-size: 11px; color: var(--text-faint); margin-top: 4px; font-family: 'DM Mono', monospace; }
+  .a-free-btn {
+    background: rgba(128,164,120,0.15); border: 1px solid rgba(128,164,120,0.3);
+    color: var(--court-green); border-radius: 8px; padding: 6px 12px;
+    font-size: 12px; cursor: pointer;
+  }
 
-  .a-queue-item { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
-  .a-queue-pos { font-family: 'Archivo Black', sans-serif; font-size: 20px; color: rgba(255,255,255,0.15); width: 24px; }
+  .a-queue-item {
+    display: flex; align-items: center; gap: 12px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 8px;
+  }
+  .a-queue-pos { font-family: 'Archivo Black', sans-serif; font-size: 20px; color: var(--text-faint); width: 24px; }
   .a-queue-info { flex: 1; }
   .a-queue-name { font-size: 15px; font-weight: 500; }
-  .a-queue-meta { font-size: 11px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace; margin-top: 2px; }
+  .a-queue-meta { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
   .a-period-toggle { display: flex; gap: 8px; margin-bottom: 20px; }
-  .a-period-btn { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 6px 14px; color: rgba(255,255,255,0.5); font-size: 12px; cursor: pointer; }
-  .a-period-btn.active { background: rgba(74,222,128,0.15); border-color: #4ade80; color: #4ade80; }
-  .a-leaderboard-item { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
+  .a-period-btn {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 14px; color: var(--text-muted);
+    font-size: 12px; cursor: pointer; font-family: 'Archivo', sans-serif;
+  }
+  .a-period-btn.active { background: rgba(180,100,99,0.15); border-color: var(--primary); color: var(--primary); }
+
+  .a-leaderboard-item {
+    display: flex; align-items: center; gap: 12px; background: var(--bg-card);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 8px;
+  }
   .a-rank { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
   .a-player-name { font-size: 15px; font-weight: 500; }
-  .a-player-meta { font-size: 11px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace; margin-top: 2px; }
-  .a-session-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; }
+  .a-player-meta { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  .a-session-item {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; margin-bottom: 8px;
+  }
   .a-session-name { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
-  .a-session-meta { font-size: 11px; color: rgba(255,255,255,0.35); font-family: 'DM Mono', monospace; }
+  .a-session-meta { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+
+  .a-bar-chart { display: flex; gap: 4px; align-items: flex-end; padding: 8px 0; margin-bottom: 8px; }
+  .a-bar-col { display: flex; flex-direction: column; align-items: center; flex: 1; gap: 4px; }
+  .a-bar-wrap { height: 64px; display: flex; align-items: flex-end; width: 100%; justify-content: center; }
+  .a-bar { width: 100%; background: var(--court-green); border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.3s; opacity: 0.8; }
+  .a-bar-label { font-size: 9px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+  .a-bar-count { font-size: 9px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+  .a-peak-badge { display: inline-block; background: rgba(180,100,99,0.15); border: 1px solid rgba(180,100,99,0.3); color: var(--primary); font-size: 12px; padding: 4px 12px; border-radius: 20px; margin-bottom: 12px; font-family: 'DM Mono', monospace; }
 `;
