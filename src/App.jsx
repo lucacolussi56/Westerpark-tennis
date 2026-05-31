@@ -153,7 +153,7 @@ function FeedbackModal({ t, onClose }) {
         {sent ? (
           <div style={{textAlign:"center",padding:"20px 0"}}>
             <div style={{fontSize:48,marginBottom:16}}>🎾</div>
-            <div style={{fontSize:18,color:"#4ade80",fontFamily:"'Archivo Black',sans-serif",marginBottom:8}}>Thank you! 🙏</div>
+            <div style={{fontSize:18,color:"var(--primary)",fontFamily:"'Archivo Black',sans-serif",marginBottom:8}}>Thank you! 🙏</div>
             <div style={{fontSize:14,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginBottom:8}}>{t.feedbackThanks || "Thanks for your feedback!"}</div>
             <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",lineHeight:1.5}}>{t.feedbackSubtitle}</div>
           </div>
@@ -549,34 +549,31 @@ const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Archivo+Black&family=Archivo:wght@400;500&display=swap');
 
   :root {
-    /* ── Westerpark Court Colors ── */
-    --bg:           #152015;
+    /* ── Westerpark Court Colors (exact from photo) ── */
+    --bg:           #1a2118;
     --bg-card:      rgba(255,255,255,0.04);
     --bg-card-hover:rgba(255,255,255,0.07);
     --border:       rgba(255,255,255,0.08);
-    --border-focus: #e8533a;
+    --border-focus: #b46463;
 
-    --primary:      #e8533a;
-    --primary-dark: #c0392b;
-    --primary-glow: rgba(232,83,58,0.25);
+    --primary:      #b46463;
+    --primary-dark: #90504f;
+    --primary-glow: rgba(180,100,99,0.3);
 
-    --accent:       #f0f0e8;
-    --accent-muted: rgba(240,240,232,0.5);
-    --accent-faint: rgba(240,240,232,0.15);
+    --court-green:  #80a478;
+    --court-green-dark: #40523c;
 
-    --green-free:   #4ade80;
-    --green-glow:   rgba(74,222,128,0.2);
+    --green-free:   #80a478;
+    --green-glow:   rgba(128,164,120,0.2);
 
     --warning:      #ffaa00;
-    --danger:       #ff4444;
+    --danger:       #ff6b6b;
 
-    --text:         #f0f0e8;
-    --text-muted:   rgba(240,240,232,0.5);
-    --text-faint:   rgba(240,240,232,0.25);
+    --text:         #f0ede8;
+    --text-muted:   rgba(240,237,232,0.55);
+    --text-faint:   rgba(240,237,232,0.28);
 
-    --court-red:    #c0392b;
-    --court-green:  #1a3a1a;
-    --court-line:   rgba(240,240,232,0.9);
+    --court-line:   rgba(240,237,232,0.9);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -596,7 +593,7 @@ const styles = `
     background:
       repeating-linear-gradient(90deg, rgba(240,240,232,0.02) 0px, transparent 1px, transparent 60px),
       repeating-linear-gradient(0deg,  rgba(240,240,232,0.02) 0px, transparent 1px, transparent 60px),
-      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(192,57,43,0.08) 0%, transparent 70%);
+      radial-gradient(ellipse 80% 60% at 50% 0%, rgba(180,100,99,0.08) 0%, transparent 70%);
     pointer-events: none; z-index: 0;
   }
 
@@ -693,7 +690,7 @@ const styles = `
   .feedback-link { color: var(--text-muted) !important; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: flex-end; padding: 20px; }
-  .modal { background: #1a2e1a; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 24px; width: 100%; max-width: 480px; margin: 0 auto; max-height: 85vh; overflow-y: auto; }
+  .modal { background: #1e2a1e; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 24px; width: 100%; max-width: 480px; margin: 0 auto; max-height: 85vh; overflow-y: auto; }
   .modal h3 { font-family: 'Archivo Black', sans-serif; font-size: 20px; margin-bottom: 12px; color: var(--text); }
   .modal label { display: block; font-size: 11px; letter-spacing: 2px; color: var(--text-faint); font-family: 'DM Mono', monospace; margin-bottom: 6px; margin-top: 16px; text-transform: uppercase; }
   .modal input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 16px; font-family: 'Archivo', sans-serif; outline: none; }
