@@ -70,7 +70,7 @@ function CourtTimer({ court, t }) {
   );
 }
 
-function QueueItem({ item, isYou, onLeave, isNext, t }) {
+function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t }) {
   const waitMin = Math.floor((Date.now() - item.joinedAt) / 60000);
   return (
     <div className={`queue-item ${isYou ? "is-you" : ""} ${isNext ? "is-next" : ""}`}>
@@ -85,7 +85,7 @@ function QueueItem({ item, isYou, onLeave, isNext, t }) {
           <span className="queue-wait">{waitMin} min</span>
         </div>
       </div>
-      {isYou && <button className="leave-btn" onClick={onLeave}>✕</button>}
+      {isYou && <button className="leave-btn" onClick={onConfirmLeave}>✕ Leave</button>}
       {isNext && !isYou && <div className="ready-pulse">🎾</div>}
     </div>
   );
@@ -185,6 +185,7 @@ function FeedbackModal({ t, onClose }) {
 }
 
 function PlayingScreen({ myPlaying, onDone, t }) {
+  const [confirmDone, setConfirmDone] = useState(false);
   const limit = myPlaying.type === "singles" ? 45 : 60;
   const { elapsedMin, elapsedSec, remainMin, remainSec, overTime, pct } = useTimer(myPlaying.startedAt, limit);
   const circumference = 2 * Math.PI * 70;
@@ -217,8 +218,19 @@ function PlayingScreen({ myPlaying, onDone, t }) {
         </svg>
         {overTime && <div className="overtime-big">{t.timesUp}</div>}
       </div>
-      <button className="done-btn" onClick={() => onDone(myPlaying.courtId)}>{t.doneBtn}</button>
+      <button className="done-btn" onClick={() => setConfirmDone(true)}>{t.doneBtn}</button>
       <p className="playing-note">{t.doneNote}</p>
+
+      {confirmDone && (
+        <div className="modal-overlay" onClick={() => setConfirmDone(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>⚠️ {t.confirmDoneTitle || "Done playing?"}</h3>
+            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:20}}>{t.confirmDoneText || "This will free the court and notify the next person in the queue."}</p>
+            <button className="confirm-btn" style={{marginBottom:10}} onClick={() => { setConfirmDone(false); onDone(myPlaying.courtId); }}>{t.confirmDoneYes || "Yes, I'm done"}</button>
+            <button className="confirm-btn" style={{background:"rgba(255,255,255,0.08)",color:"white"}} onClick={() => setConfirmDone(false)}>{t.confirmDoneNo || "No, keep playing"}</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -239,6 +251,7 @@ export default function App() {
   const [showAbout, setShowAbout] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [showFairPlay, setShowFairPlay] = useState(false);
+  const [showConfirmLeave, setShowConfirmLeave] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(false);
 
   // Track page view
@@ -420,6 +433,16 @@ export default function App() {
       {showAbout && <AboutModal t={t} onClose={() => setShowAbout(false)}/>}
       {showFeedback && <FeedbackModal t={t} onClose={() => setShowFeedback(false)}/>}
       {showFairPlay && <FairPlayModal t={t} onClose={() => setShowFairPlay(false)}/>}
+      {showConfirmLeave && (
+        <div className="modal-overlay" onClick={() => setShowConfirmLeave(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>⚠️ {t.confirmLeaveTitle || "Leave the queue?"}</h3>
+            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:20}}>{t.confirmLeaveText || "You will lose your spot. You can rejoin but you will go to the back of the queue."}</p>
+            <button className="confirm-btn" style={{background:"#ff4444",marginBottom:10}} onClick={() => { leaveQueue(); setShowConfirmLeave(false); }}>{t.confirmLeaveYes || "Yes, leave the queue"}</button>
+            <button className="confirm-btn" style={{background:"rgba(255,255,255,0.08)",color:"white"}} onClick={() => setShowConfirmLeave(false)}>{t.confirmLeaveNo || "No, stay in the queue"}</button>
+          </div>
+        </div>
+      )}
 
       <header>
         <div className="logo">🎾</div>
@@ -466,7 +489,7 @@ export default function App() {
             {queue.map(item => (
               <QueueItem key={item.id} item={item} isYou={myEntryId === item.id}
                 isNext={item.position === 1 && freeCourts.length > 0}
-                onLeave={leaveQueue} t={t}/>
+                onLeave={leaveQueue} onConfirmLeave={() => setShowConfirmLeave(true)} t={t}/>
             ))}
           </div>
         )}
