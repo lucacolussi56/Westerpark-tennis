@@ -1,0 +1,9 @@
+{
+  "name": "Westerpark Tennis",
+  "short_name": "WP Tennis",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0f0a",
+  "theme_color": "#0a0f0a",
+  "icons": []
+}
