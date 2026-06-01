@@ -191,23 +191,23 @@ function SettingsTab({ db, settings, setSavingSettings, savingSettings }) {
           <div className="a-settings-field">
             <div className="a-settings-sublabel">Singles (min)</div>
             <input className="a-settings-input" type="number" min="15" max="120" step="5"
-              value={form.singlesDuration} onChange={e => setForm(f => ({...f, singlesDuration: parseInt(e.target.value)}))}/>
+              value={form.singlesDuration} onChange={e => { const v = e.target.value; setForm(f => ({...f, singlesDuration: v === "" ? "" : parseInt(v) || f.singlesDuration})); }}/>
           </div>
           <div className="a-settings-field">
             <div className="a-settings-sublabel">Doubles (min)</div>
             <input className="a-settings-input" type="number" min="15" max="120" step="5"
-              value={form.doublesDuration} onChange={e => setForm(f => ({...f, doublesDuration: parseInt(e.target.value)}))}/>
+              value={form.doublesDuration} onChange={e => { const v = e.target.value; setForm(f => ({...f, doublesDuration: v === "" ? "" : parseInt(v) || f.doublesDuration})); }}/>
           </div>
         </div>
         <div className="a-settings-field" style={{marginTop:10}}>
           <div className="a-settings-sublabel">Overtime before "court free?" banner (min)</div>
           <input className="a-settings-input" type="number" min="1" max="30"
-            value={form.overtimeClaimMin} onChange={e => setForm(f => ({...f, overtimeClaimMin: parseInt(e.target.value)}))}/>
+            value={form.overtimeClaimMin} onChange={e => { const v = e.target.value; setForm(f => ({...f, overtimeClaimMin: v === "" ? "" : parseInt(v) || f.overtimeClaimMin})); }}/>
         </div>
         <div className="a-settings-field" style={{marginTop:10}}>
           <div className="a-settings-sublabel">Minutes to claim court before losing queue spot (min)</div>
           <input className="a-settings-input" type="number" min="1" max="30"
-            value={form.queueClaimMin || 10} onChange={e => setForm(f => ({...f, queueClaimMin: parseInt(e.target.value)}))}/>
+            value={form.queueClaimMin} onChange={e => { const v = e.target.value; setForm(f => ({...f, queueClaimMin: v === "" ? "" : parseInt(v) || f.queueClaimMin})); }}/>
         </div>
       </div>
 
@@ -221,7 +221,7 @@ function SettingsTab({ db, settings, setSavingSettings, savingSettings }) {
         <div className="a-settings-field" style={{marginTop:10}}>
           <div className="a-settings-sublabel">Detection radius (meters)</div>
           <input className="a-settings-input" type="number" min="50" max="1000" step="10"
-            value={form.geoRadius} onChange={e => setForm(f => ({...f, geoRadius: parseInt(e.target.value)}))}/>
+            value={form.geoRadius} onChange={e => { const v = e.target.value; setForm(f => ({...f, geoRadius: v === "" ? "" : parseInt(v) || f.geoRadius})); }}/>
         </div>
       </div>
 
