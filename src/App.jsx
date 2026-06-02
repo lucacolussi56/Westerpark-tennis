@@ -480,6 +480,22 @@ export default function App() {
     setGeoStatusSomeone("idle");
   }
 
+  async function forceFreeCourt(courtId) {
+    // Double confirmation
+    const first = window.confirm(
+      t.forceFreeConfirm1 || "Are you sure the court is free? Only do this if the players have left or agreed to stop."
+    );
+    if (!first) return;
+    const second = window.confirm(
+      t.forceFreeConfirm2 || "Final check — have you confirmed with the other players that they are OK with this?"
+    );
+    if (!second) return;
+    await updateDoc(doc(db, "courts", String(courtId)), {
+      status: "free", players: null, type: null, startedAt: null
+    });
+    notify("✅ Court freed.");
+  }
+
   async function claimCourt(courtId) {
     // First in queue claims a court that has been overtime for 5+ min
     const myEntry = queue.find(q => q.id === myEntryId);
@@ -703,7 +719,16 @@ export default function App() {
           {courts.map(court =>
             court.status === "occupied" ? (
               <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
-                <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
+                <div style={{position:"relative"}}>
+                  <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
+                  {(() => {
+                    const myEntry = queue.find(q => q.id === myEntryId);
+                    if (myEntry?.position === 1) return (
+                      <button className="force-free-btn" onClick={() => forceFreeCourt(court.id)} title={t.forceFreeTitle || "Free this court"}>✕</button>
+                    );
+                    return null;
+                  })()}
+                </div>
                 {(() => {
                   const limit = court.type === "singles" ? (appSettings.singlesDuration || 45) : (appSettings.doublesDuration || 60);
                   const elapsedMin = (Date.now() - court.startedAt) / 60000;
@@ -925,6 +950,8 @@ const styles = `
   .free-label { font-size: 14px; color: var(--green-free); font-weight: 500; }
 
   .play-btn { background: var(--primary); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Archivo Black', sans-serif; font-size: 11px; cursor: pointer; }
+  .force-free-btn { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.35); border-radius: 50%; width: 22px; height: 22px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .force-free-btn:hover { background: rgba(255,68,68,0.15); border-color: rgba(255,68,68,0.4); color: #ff6b6b; }
   .someone-btn { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--text-faint); border-radius: 8px; padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: 'Archivo', sans-serif; transition: all 0.2s; }
   .someone-btn:hover { border-color: var(--primary); color: var(--primary); }
   .claim-banner { background: rgba(180,100,99,0.08); border: 1px solid rgba(180,100,99,0.3); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
