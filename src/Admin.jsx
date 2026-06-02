@@ -442,10 +442,18 @@ export default function Admin() {
         const cutoff = period === 0 ? 0 : Date.now() - period * 24 * 60 * 60 * 1000;
         const filtered = sessions.filter(s => s.endedAt >= cutoff);
 
-        // Build leaderboard
+        // Max duration cap — ignore sessions over 150 min (anomalies)
+        const MAX_SESSION_MIN = 150;
+        const validSessions = filtered.filter(s => (s.durationMin || 0) <= MAX_SESSION_MIN);
+        const unknownSessions = filtered.filter(s =>
+          s.name === "Unknown" || s.name === "Unknown player" || s.name === "Onbekende speler"
+        );
+
+        // Build leaderboard — exclude unknown players
         const counts = {};
-        filtered.forEach(s => {
+        validSessions.forEach(s => {
           const name = s.name || "Unknown";
+          if (name === "Unknown" || name === "Unknown player" || name === "Onbekende speler") return;
           if (!counts[name]) counts[name] = { name, sessions: 0, minutes: 0 };
           counts[name].sessions += 1;
           counts[name].minutes += s.durationMin || 0;
@@ -468,12 +476,20 @@ export default function Admin() {
 
             <div className="a-cards" style={{marginBottom:20}}>
               <div className="a-card">
-                <div className="a-card-value">{filtered.length}</div>
+                <div className="a-card-value">{validSessions.filter(s => s.name !== "Unknown" && s.name !== "Unknown player" && s.name !== "Onbekende speler").length}</div>
                 <div className="a-card-label">Sessions</div>
               </div>
               <div className="a-card">
                 <div className="a-card-value">{leaderboard.length}</div>
                 <div className="a-card-label">Players</div>
+              </div>
+              <div className="a-card">
+                <div className="a-card-value">{unknownSessions.length}</div>
+                <div className="a-card-label">Unknown courts</div>
+              </div>
+              <div className="a-card">
+                <div className="a-card-value">{filtered.length - validSessions.length}</div>
+                <div className="a-card-label">Anomalies (&gt;150min)</div>
               </div>
             </div>
 
