@@ -347,6 +347,10 @@ export default function App() {
     localStorage.setItem("lang", l);
   }
 
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   function changeTheme(th) {
     setTheme(th);
     localStorage.setItem("theme", th);
