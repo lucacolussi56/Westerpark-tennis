@@ -12,6 +12,8 @@ let MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
 const OVERTIME_CLAIM_MIN = 5;   // minuti di overtime prima che il primo in fila possa liberare il campo
 const UNKNOWN_LABELS = [translations.en.unknownPlayer, translations.nl.unknownPlayer];
+// Google Apps Script Web App URL (script.google.com) — sends an urgent email on new problem reports. See setup notes.
+const REPORT_PROBLEM_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzKl-u9JBeDB67HLaF6y8GQq7ftVnr-TIZ8R_uQUUEF9GeEFLQDLuUATzuKXlSnwpJO/exec";
 
 function getDistanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -217,6 +219,65 @@ function FeedbackModal({ t, onClose }) {
   );
 }
 
+function ReportProblemModal({ t, onClose }) {
+  const [category, setCategory] = useState(null);
+  const [text, setText] = useState("");
+  const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  async function submitReport() {
+    if (category === null || !text.trim()) return;
+    setSending(true);
+    const payload = {
+      category: t.reportProblemCategories[category],
+      text: text.trim(),
+      lang: localStorage.getItem("lang") || "en",
+      submittedAt: Date.now(),
+    };
+    await addDoc(collection(db, "problems"), payload);
+    if (REPORT_PROBLEM_WEBHOOK_URL) {
+      try {
+        fetch(REPORT_PROBLEM_WEBHOOK_URL, { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
+      } catch (err) {
+        console.error("Report webhook error:", err);
+      }
+    }
+    setSent(true);
+    setSending(false);
+    logEvent(analytics, "problem_reported", { category: payload.category });
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        {sent ? (
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:48,marginBottom:16}}>🚨</div>
+            <div style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.6}}>{t.reportProblemThanks}</div>
+            <button className="confirm-btn" onClick={onClose}>{t.close}</button>
+          </div>
+        ) : (
+          <>
+            <h3>{t.reportProblemTitle}</h3>
+            <label>{t.reportProblemCategoryLabel}</label>
+            <div className="problem-categories">
+              {t.reportProblemCategories.map((c, i) => (
+                <button key={i} className={"problem-cat-btn " + (category === i ? "active" : "")} onClick={() => setCategory(i)}>{c}</button>
+              ))}
+            </div>
+            <label>{t.reportProblemDescLabel}</label>
+            <textarea value={text} onChange={e => setText(e.target.value)}
+              placeholder={t.reportProblemDescPlaceholder} rows={4}/>
+            <button className="confirm-btn" onClick={submitReport} disabled={category === null || !text.trim() || sending}>
+              {sending ? "⏳ Sending..." : t.reportProblemSend}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration }) {
   const [confirmDone, setConfirmDone] = useState(false);
   const limit = myPlaying.type === "singles" ? (singlesDuration || 45) : (doublesDuration || 60);
@@ -302,6 +363,7 @@ export default function App() {
     welcomeMsg: "",
   });
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showReportProblem, setShowReportProblem] = useState(false);
   const [showFairPlay, setShowFairPlay] = useState(false);
   const [showConfirmLeave, setShowConfirmLeave] = useState(false);
   const [someonePlayCourt, setSomeonePlayCourt] = useState(null);
@@ -681,6 +743,7 @@ export default function App() {
       )}
       {showAbout && <AboutModal t={t} onClose={() => setShowAbout(false)}/>}
       {showFeedback && <FeedbackModal t={t} onClose={() => setShowFeedback(false)}/>}
+      {showReportProblem && <ReportProblemModal t={t} onClose={() => setShowReportProblem(false)}/>}
       {showFairPlay && <FairPlayModal t={t} onClose={() => setShowFairPlay(false)}/>}
       {someonePlayCourt && (
         <div className="modal-overlay" onClick={() => { setSomeonePlayCourt(null); setGeoStatusSomeone("idle"); }}>
@@ -852,6 +915,7 @@ export default function App() {
         <button className="about-link" onClick={() => setShowAbout(true)}>ℹ️ {t.aboutLink}</button>
         <button className="about-link" onClick={() => setShowFairPlay(true)}>🎾 {t.fairPlayLink || "Fair play"}</button>
         <button className="about-link feedback-link" onClick={() => setShowFeedback(true)}>{t.feedbackLink || "💬 Give feedback"}</button>
+        <button className="about-link" onClick={() => setShowReportProblem(true)}>{t.reportProblemLink}</button>
       </div>
 
       {screen === "join" && (
@@ -1095,6 +1159,10 @@ const styles = `
   .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .type-toggle button { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 6px; color: var(--text-muted); font-family: 'Archivo', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.2s; }
   .type-toggle button.active { background: rgba(192,57,43,0.15); border-color: var(--primary); color: var(--primary); }
+
+  .problem-categories { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .problem-cat-btn { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; color: var(--text-muted); font-size: 13px; text-align: left; cursor: pointer; font-family: 'Archivo', sans-serif; transition: all 0.2s; }
+  .problem-cat-btn.active { background: rgba(192,57,43,0.15); border-color: var(--primary); color: var(--primary); }
 
   .confirm-btn { width: 100%; background: var(--primary); color: white; border: none; border-radius: 12px; padding: 15px; font-family: 'Archivo Black', sans-serif; font-size: 15px; cursor: pointer; margin-top: 12px; transition: opacity 0.2s; }
   .confirm-btn:disabled { opacity: 0.3; cursor: not-allowed; }

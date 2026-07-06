@@ -256,6 +256,7 @@ export default function Admin() {
   const [error, setError] = useState(false);
 
   const [feedback, setFeedback] = useState([]);
+  const [problems, setProblems] = useState([]);
   const [courts, setCourts] = useState([]);
   const [queue, setQueue] = useState([]);
   const [stats, setStats] = useState({ total: 0, avgRating: 0 });
@@ -291,6 +292,11 @@ export default function Admin() {
       }
     );
 
+    const unsubProblems = onSnapshot(
+      query(collection(db, "problems"), orderBy("submittedAt", "desc")),
+      snap => { setProblems(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }
+    );
+
     const unsubCourts = onSnapshot(collection(db, "courts"), snap => {
       setCourts(snap.docs.map(d => ({ id: Number(d.id), ...d.data() })).sort((a,b) => a.id - b.id));
     });
@@ -317,12 +323,18 @@ export default function Admin() {
       });
     });
 
-    return () => { unsubFeedback(); unsubCourts(); unsubQueue(); unsubSessions(); unsubSettings(); };
+    return () => { unsubFeedback(); unsubProblems(); unsubCourts(); unsubQueue(); unsubSessions(); unsubSettings(); };
   }, [authed]);
 
   async function deleteFeedback(id) {
     setDeleting(id);
     await deleteDoc(doc(db, "feedback", id));
+    setDeleting(null);
+  }
+
+  async function deleteProblem(id) {
+    setDeleting(id);
+    await deleteDoc(doc(db, "problems", id));
     setDeleting(null);
   }
 
@@ -376,9 +388,9 @@ export default function Admin() {
       </header>
 
       <div className="a-tabs">
-        {["overview", "feedback", "courts", "leaderboard", "settings"].map(t => (
+        {["overview", "feedback", "problems", "courts", "leaderboard", "settings"].map(t => (
           <button key={t} className={`a-tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : t === "courts" ? "🎾 Live" : t === "leaderboard" ? "🏆 Leaderboard" : "⚙️ Settings"}
+            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : t === "problems" ? "🚨 Problems" : t === "courts" ? "🎾 Live" : t === "leaderboard" ? "🏆 Leaderboard" : "⚙️ Settings"}
           </button>
         ))}
       </div>
@@ -437,6 +449,29 @@ export default function Admin() {
               {f.text && <div className="a-feedback-text">{f.text}</div>}
               <div className="a-feedback-meta">
                 {f.lang?.toUpperCase()} · {new Date(f.submittedAt).toLocaleDateString()} · {new Date(f.submittedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "problems" && (
+        <div className="a-content">
+          <h3 className="a-section-title">{problems.length} problem report{problems.length !== 1 ? "s" : ""}</h3>
+          {problems.length === 0 && <div className="a-empty">No problems reported</div>}
+          {problems.map(p => (
+            <div key={p.id} className="a-feedback-item">
+              <div className="a-feedback-top">
+                <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{p.category}</div>
+                <button
+                  className="a-delete-btn"
+                  onClick={() => deleteProblem(p.id)}
+                  disabled={deleting === p.id}
+                >{deleting === p.id ? "..." : "✕"}</button>
+              </div>
+              {p.text && <div className="a-feedback-text">{p.text}</div>}
+              <div className="a-feedback-meta">
+                {p.lang?.toUpperCase()} · {new Date(p.submittedAt).toLocaleDateString()} · {new Date(p.submittedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
               </div>
             </div>
           ))}
