@@ -54,16 +54,16 @@ function CourtTimer({ court, t, singlesDuration, doublesDuration }) {
       <div className="court-players">{court.players}</div>
       <div className="timer-ring-container">
         <svg width="100" height="100" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="38" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6"/>
+          <circle cx="50" cy="50" r="38" fill="none" style={{stroke: "var(--border)"}} strokeWidth="6"/>
           <circle cx="50" cy="50" r="38" fill="none"
             stroke={overTime ? "#ff4444" : pct > 80 ? "#ffaa00" : "#4ade80"}
             strokeWidth="6" strokeDasharray={circumference} strokeDashoffset={strokeDash}
             strokeLinecap="round" transform="rotate(-90 50 50)"
             style={{transition:"stroke-dashoffset 1s linear,stroke 0.5s"}}/>
-          <text x="50" y="44" textAnchor="middle" fill="white" fontSize="13" fontWeight="700" fontFamily="'DM Mono',monospace">
+          <text x="50" y="44" textAnchor="middle" style={{fill: "var(--text)"}} fontSize="13" fontWeight="700" fontFamily="'DM Mono',monospace">
             {String(elapsedMin).padStart(2,"0")}:{String(elapsedSec).padStart(2,"0")}
           </text>
-          <text x="50" y="58" textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="8" fontFamily="'DM Mono',monospace">
+          <text x="50" y="58" textAnchor="middle" style={{fill: "var(--text-muted)"}} fontSize="8" fontFamily="'DM Mono',monospace">
             {overTime ? `+${remainMin}:${String(remainSec).padStart(2,"0")} OT` : `−${remainMin}:${String(remainSec).padStart(2,"0")} ${t.timeLeft}`}
           </text>
         </svg>
@@ -187,8 +187,8 @@ function FeedbackModal({ t, onClose }) {
           <div style={{textAlign:"center",padding:"20px 0"}}>
             <div style={{fontSize:48,marginBottom:16}}>🎾</div>
             <div style={{fontSize:18,color:"var(--primary)",fontFamily:"'Archivo Black',sans-serif",marginBottom:8}}>Thank you! 🙏</div>
-            <div style={{fontSize:14,color:"rgba(255,255,255,0.7)",lineHeight:1.6,marginBottom:8}}>{t.feedbackThanks || "Thanks for your feedback!"}</div>
-            <div style={{fontSize:12,color:"rgba(255,255,255,0.35)",lineHeight:1.5}}>{t.feedbackSubtitle}</div>
+            <div style={{fontSize:14,color:"var(--text-muted)",lineHeight:1.6,marginBottom:8}}>{t.feedbackThanks || "Thanks for your feedback!"}</div>
+            <div style={{fontSize:12,color:"var(--text-faint)",lineHeight:1.5}}>{t.feedbackSubtitle}</div>
           </div>
         ) : (
           <>
@@ -236,16 +236,16 @@ function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration 
       </header>
       <div className="big-timer">
         <svg width="200" height="200" viewBox="0 0 200 200">
-          <circle cx="100" cy="100" r="70" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10"/>
+          <circle cx="100" cy="100" r="70" fill="none" style={{stroke: "var(--border)"}} strokeWidth="10"/>
           <circle cx="100" cy="100" r="70" fill="none"
             stroke={overTime ? "#ff4444" : pct > 80 ? "#ffaa00" : "#4ade80"}
             strokeWidth="10" strokeDasharray={circumference} strokeDashoffset={strokeDash}
             strokeLinecap="round" transform="rotate(-90 100 100)"
             style={{transition:"stroke-dashoffset 1s linear"}}/>
-          <text x="100" y="90" textAnchor="middle" fill="white" fontSize="32" fontWeight="700" fontFamily="'DM Mono',monospace">
+          <text x="100" y="90" textAnchor="middle" style={{fill: "var(--text)"}} fontSize="32" fontWeight="700" fontFamily="'DM Mono',monospace">
             {String(elapsedMin).padStart(2,"0")}:{String(elapsedSec).padStart(2,"0")}
           </text>
-          <text x="100" y="118" textAnchor="middle" fill="rgba(255,255,255,0.6)" fontSize="14" fontFamily="'DM Mono',monospace">
+          <text x="100" y="118" textAnchor="middle" style={{fill: "var(--text-muted)"}} fontSize="14" fontFamily="'DM Mono',monospace">
             {overTime ? `${t.overtime} +${remainMin}:${String(remainSec).padStart(2,"0")}` : `${remainMin}:${String(remainSec).padStart(2,"0")} ${t.timeLeft}`}
           </text>
         </svg>
@@ -258,9 +258,9 @@ function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration 
         <div className="modal-overlay" onClick={() => setConfirmDone(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>⚠️ {t.confirmDoneTitle || "Done playing?"}</h3>
-            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:20}}>{t.confirmDoneText || "This will free the court and notify the next person in the queue."}</p>
+            <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:20}}>{t.confirmDoneText || "This will free the court and notify the next person in the queue."}</p>
             <button className="confirm-btn" style={{marginBottom:10}} onClick={() => { setConfirmDone(false); onDone(myPlaying.courtId); }}>{t.confirmDoneYes || "Yes, I'm done"}</button>
-            <button className="confirm-btn" style={{background:"rgba(255,255,255,0.08)",color:"white"}} onClick={() => setConfirmDone(false)}>{t.confirmDoneNo || "No, keep playing"}</button>
+            <button className="confirm-btn" style={{background:"var(--bg-card-hover)",color:"var(--text)"}} onClick={() => setConfirmDone(false)}>{t.confirmDoneNo || "No, keep playing"}</button>
           </div>
         </div>
       )}
@@ -271,6 +271,11 @@ function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration 
 export default function App() {
   const [lang, setLang] = useState(() => localStorage.getItem("lang") || "nl");
   const t = translations[lang];
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("theme");
+    if (saved) return saved;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  });
 
   const [courts, setCourts] = useState([]);
   const [queue, setQueue] = useState([]);
@@ -341,6 +346,17 @@ export default function App() {
     setLang(l);
     localStorage.setItem("lang", l);
   }
+
+  function changeTheme(th) {
+    setTheme(th);
+    localStorage.setItem("theme", th);
+  }
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", theme === "light" ? "#f6f3ec" : "#0a0f0a");
+  }, [theme]);
 
   useEffect(() => {
     async function initCourts() {
@@ -665,7 +681,7 @@ export default function App() {
         <div className="modal-overlay" onClick={() => { setSomeonePlayCourt(null); setGeoStatusSomeone("idle"); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>👀 {t.someoneIsPlayingTitle || "Someone is playing?"}</h3>
-            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:12}}>
+            <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:12}}>
               {t.someoneIsPlayingText || "Mark this court as occupied and join the queue as first in line."}
             </p>
 
@@ -724,9 +740,9 @@ export default function App() {
         <div className="modal-overlay" onClick={() => setShowConfirmLeave(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>⚠️ {t.confirmLeaveTitle || "Leave the queue?"}</h3>
-            <p style={{color:"rgba(255,255,255,0.6)",fontSize:14,lineHeight:1.6,marginBottom:20}}>{t.confirmLeaveText || "You will lose your spot. You can rejoin but you will go to the back of the queue."}</p>
+            <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:20}}>{t.confirmLeaveText || "You will lose your spot. You can rejoin but you will go to the back of the queue."}</p>
             <button className="confirm-btn" style={{background:"#ff4444",marginBottom:10}} onClick={() => { leaveQueue(); setShowConfirmLeave(false); }}>{t.confirmLeaveYes || "Yes, leave the queue"}</button>
-            <button className="confirm-btn" style={{background:"rgba(255,255,255,0.08)",color:"white"}} onClick={() => setShowConfirmLeave(false)}>{t.confirmLeaveNo || "No, stay in the queue"}</button>
+            <button className="confirm-btn" style={{background:"var(--bg-card-hover)",color:"var(--text)"}} onClick={() => setShowConfirmLeave(false)}>{t.confirmLeaveNo || "No, stay in the queue"}</button>
           </div>
         </div>
       )}
@@ -738,6 +754,10 @@ export default function App() {
           <div className="site-sub">{t.appSub}</div>
         </div>
         <div className="header-right">
+          <button className="theme-toggle" onClick={() => changeTheme(theme === "dark" ? "light" : "dark")}
+            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
+            {theme === "dark" ? "☀️" : "🌙"}
+          </button>
           <div className="lang-toggle">
             <button className={lang === "en" ? "active" : ""} onClick={() => changeLang("en")}>EN</button>
             <button className={lang === "nl" ? "active" : ""} onClick={() => changeLang("nl")}>NL</button>
@@ -894,6 +914,28 @@ const styles = `
     --text-faint:   rgba(240,237,232,0.28);
 
     --court-line:   rgba(240,237,232,0.9);
+
+    --header-bg:    rgba(21,32,21,0.8);
+    --modal-bg:     #1e2a1e;
+    --grid-line:    rgba(240,240,232,0.02);
+    --star-empty:   rgba(255,255,255,0.15);
+  }
+
+  :root[data-theme="light"] {
+    --bg:           #f6f3ec;
+    --bg-card:      rgba(20,25,20,0.035);
+    --bg-card-hover:rgba(20,25,20,0.06);
+    --border:       rgba(20,25,20,0.12);
+
+    --text:         #23281f;
+    --text-muted:   rgba(35,40,31,0.62);
+    --text-faint:   rgba(35,40,31,0.35);
+    --court-line:   rgba(35,40,31,0.9);
+
+    --header-bg:    rgba(246,243,236,0.85);
+    --modal-bg:     #fffdf9;
+    --grid-line:    rgba(20,25,20,0.035);
+    --star-empty:   rgba(20,25,20,0.15);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -911,8 +953,8 @@ const styles = `
   .bg-court {
     position: fixed; inset: 0;
     background:
-      repeating-linear-gradient(90deg, rgba(240,240,232,0.02) 0px, transparent 1px, transparent 60px),
-      repeating-linear-gradient(0deg,  rgba(240,240,232,0.02) 0px, transparent 1px, transparent 60px),
+      repeating-linear-gradient(90deg, var(--grid-line) 0px, transparent 1px, transparent 60px),
+      repeating-linear-gradient(0deg,  var(--grid-line) 0px, transparent 1px, transparent 60px),
       radial-gradient(ellipse 80% 60% at 50% 0%, rgba(180,100,99,0.08) 0%, transparent 70%);
     pointer-events: none; z-index: 0;
   }
@@ -922,7 +964,7 @@ const styles = `
     padding: 16px 16px 14px;
     border-bottom: 1px solid var(--border);
     position: relative; z-index: 1;
-    background: rgba(21,32,21,0.8);
+    background: var(--header-bg);
     backdrop-filter: blur(10px);
   }
 
@@ -932,9 +974,11 @@ const styles = `
 
   .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
-  .lang-toggle { display: flex; background: rgba(255,255,255,0.06); border-radius: 20px; padding: 2px; gap: 2px; }
+  .lang-toggle { display: flex; background: var(--bg-card-hover); border-radius: 20px; padding: 2px; gap: 2px; }
   .lang-toggle button { background: none; border: none; color: var(--text-faint); font-family: 'DM Mono', monospace; font-size: 11px; padding: 3px 8px; border-radius: 16px; cursor: pointer; transition: all 0.2s; letter-spacing: 1px; }
   .lang-toggle button.active { background: var(--primary-glow); color: var(--primary); }
+
+  .theme-toggle { background: var(--bg-card-hover); border: none; border-radius: 20px; padding: 4px 9px; font-size: 13px; line-height: 1; cursor: pointer; }
 
   .live-dot { display: flex; align-items: center; gap: 5px; font-size: 10px; letter-spacing: 2px; color: var(--court-green); font-family: 'DM Mono', monospace; background: rgba(128,164,120,0.1); padding: 4px 8px; border-radius: 20px; border: 1px solid rgba(128,164,120,0.2); }
   .live-dot span { width: 6px; height: 6px; background: var(--court-green); border-radius: 50%; animation: pulse 1.5s infinite; }
@@ -987,9 +1031,9 @@ const styles = `
   .free-label { font-size: 14px; color: var(--green-free); font-weight: 500; }
 
   .play-btn { background: var(--primary); color: white; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Archivo Black', sans-serif; font-size: 11px; cursor: pointer; }
-  .force-free-btn { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.35); border-radius: 50%; width: 22px; height: 22px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+  .force-free-btn { position: absolute; top: 10px; right: 10px; background: var(--bg-card-hover); border: 1px solid var(--border); color: var(--text-faint); border-radius: 50%; width: 22px; height: 22px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
   .force-free-btn:hover { background: rgba(255,68,68,0.15); border-color: rgba(255,68,68,0.4); color: #ff6b6b; }
-  .someone-btn { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--text-faint); border-radius: 8px; padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: 'Archivo', sans-serif; transition: all 0.2s; }
+  .someone-btn { background: transparent; border: 1px solid var(--border); color: var(--text-faint); border-radius: 8px; padding: 6px 12px; font-size: 11px; cursor: pointer; font-family: 'Archivo', sans-serif; transition: all 0.2s; }
   .someone-btn:hover { border-color: var(--primary); color: var(--primary); }
   .claim-banner { background: rgba(180,100,99,0.08); border: 1px solid rgba(180,100,99,0.3); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
   .claim-banner-text { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
@@ -1027,27 +1071,27 @@ const styles = `
   .join-big-btn:active { transform: scale(0.98); opacity: 0.9; }
 
   .about-link-wrap { text-align: center; padding: 16px; position: relative; z-index: 1; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
-  .about-link { background: rgba(255,255,255,0.05); border: 1px solid var(--border) !important; color: var(--text-muted); font-size: 12px; cursor: pointer; font-family: 'Archivo', sans-serif; text-decoration: none; padding: 8px 14px; border-radius: 20px; transition: all 0.2s; }
-  .about-link:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .about-link { background: var(--bg-card); border: 1px solid var(--border) !important; color: var(--text-muted); font-size: 12px; cursor: pointer; font-family: 'Archivo', sans-serif; text-decoration: none; padding: 8px 14px; border-radius: 20px; transition: all 0.2s; }
+  .about-link:hover { background: var(--bg-card-hover); color: var(--text); }
   .feedback-link { color: var(--text-muted) !important; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); backdrop-filter: blur(10px); z-index: 100; display: flex; align-items: flex-end; padding: 20px; }
-  .modal { background: #1e2a1e; border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 24px; width: 100%; max-width: 480px; margin: 0 auto; max-height: 85vh; overflow-y: auto; }
+  .modal { background: var(--modal-bg); border: 1px solid var(--border); border-radius: 20px; padding: 24px; width: 100%; max-width: 480px; margin: 0 auto; max-height: 85vh; overflow-y: auto; }
   .modal h3 { font-family: 'Archivo Black', sans-serif; font-size: 20px; margin-bottom: 12px; color: var(--text); }
   .modal label { display: block; font-size: 11px; letter-spacing: 2px; color: var(--text-faint); font-family: 'DM Mono', monospace; margin-bottom: 6px; margin-top: 16px; text-transform: uppercase; }
-  .modal input { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 16px; font-family: 'Archivo', sans-serif; outline: none; }
+  .modal input { width: 100%; background: var(--bg-card-hover); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 16px; font-family: 'Archivo', sans-serif; outline: none; }
   .modal input:focus { border-color: var(--primary); }
-  .modal textarea { width: 100%; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 14px; font-family: 'Archivo', sans-serif; outline: none; resize: none; line-height: 1.5; }
+  .modal textarea { width: 100%; background: var(--bg-card-hover); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 14px; font-family: 'Archivo', sans-serif; outline: none; resize: none; line-height: 1.5; }
   .modal textarea:focus { border-color: var(--primary); }
 
   .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .type-toggle button { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 10px; padding: 10px 6px; color: var(--text-muted); font-family: 'Archivo', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.2s; }
+  .type-toggle button { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 6px; color: var(--text-muted); font-family: 'Archivo', sans-serif; font-size: 12px; cursor: pointer; transition: all 0.2s; }
   .type-toggle button.active { background: rgba(192,57,43,0.15); border-color: var(--primary); color: var(--primary); }
 
   .confirm-btn { width: 100%; background: var(--primary); color: white; border: none; border-radius: 12px; padding: 15px; font-family: 'Archivo Black', sans-serif; font-size: 15px; cursor: pointer; margin-top: 12px; transition: opacity 0.2s; }
   .confirm-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
-  .geo-status { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px; font-size: 13px; color: var(--text-muted); line-height: 1.7; margin-top: 10px; white-space: pre-line; }
+  .geo-status { background: var(--bg-card); border-radius: 10px; padding: 14px; font-size: 13px; color: var(--text-muted); line-height: 1.7; margin-top: 10px; white-space: pre-line; }
   .geo-status.error   { border: 1px solid rgba(255,68,68,0.3); color: #ff9999; }
   .geo-status.warning { border: 1px solid rgba(255,170,0,0.3); color: #ffcc88; }
   .geo-status.success { border: 1px solid rgba(74,222,128,0.3); color: #a8f0c0; }
@@ -1062,7 +1106,7 @@ const styles = `
   .feedback-subtitle { font-size: 13px; color: var(--text-faint); line-height: 1.5; margin-bottom: 4px; }
   .stars-hint { text-align: center; font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; letter-spacing: 1px; margin-top: -8px; }
   .stars-row { display: flex; justify-content: center; gap: 8px; margin: 16px 0; }
-  .star-btn { background: none; border: none; font-size: 36px; cursor: pointer; color: rgba(255,255,255,0.15); transition: color 0.15s; padding: 0; line-height: 1; }
+  .star-btn { background: none; border: none; font-size: 36px; cursor: pointer; color: var(--star-empty); transition: color 0.15s; padding: 0; line-height: 1; }
   .star-btn.active { color: #ffcc00; }
 
   .notification { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: var(--primary); color: white; padding: 10px 20px; border-radius: 30px; font-weight: 600; font-size: 13px; z-index: 999; white-space: nowrap; animation: slideDown 0.3s ease; box-shadow: 0 4px 20px var(--primary-glow); }
