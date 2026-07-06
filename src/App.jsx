@@ -224,27 +224,31 @@ function ReportProblemModal({ t, onClose }) {
   const [text, setText] = useState("");
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
+  const [error, setError] = useState(false);
 
   async function submitReport() {
     if (category === null || !text.trim()) return;
     setSending(true);
+    setError(false);
     const payload = {
       category: t.reportProblemCategories[category],
       text: text.trim(),
       lang: localStorage.getItem("lang") || "en",
       submittedAt: Date.now(),
     };
-    await addDoc(collection(db, "problems"), payload);
-    if (REPORT_PROBLEM_WEBHOOK_URL) {
-      try {
+    try {
+      await addDoc(collection(db, "problems"), payload);
+      if (REPORT_PROBLEM_WEBHOOK_URL) {
         fetch(REPORT_PROBLEM_WEBHOOK_URL, { method: "POST", body: JSON.stringify(payload) }).catch(() => {});
-      } catch (err) {
-        console.error("Report webhook error:", err);
       }
+      setSent(true);
+      logEvent(analytics, "problem_reported", { category: payload.category });
+    } catch (err) {
+      console.error("Report submit error:", err);
+      setError(true);
+    } finally {
+      setSending(false);
     }
-    setSent(true);
-    setSending(false);
-    logEvent(analytics, "problem_reported", { category: payload.category });
   }
 
   return (
@@ -271,6 +275,7 @@ function ReportProblemModal({ t, onClose }) {
             <button className="confirm-btn" onClick={submitReport} disabled={category === null || !text.trim() || sending}>
               {sending ? "⏳ Sending..." : t.reportProblemSend}
             </button>
+            {error && <div className="geo-status error" style={{marginTop:10}}>⚠️ Something went wrong sending your report. Please try again.</div>}
           </>
         )}
       </div>
