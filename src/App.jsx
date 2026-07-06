@@ -11,6 +11,7 @@ let GEO_COORDS = { lat: 52.387583, lng: 4.875667 };
 let MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
 const OVERTIME_CLAIM_MIN = 5;   // minuti di overtime prima che il primo in fila possa liberare il campo
+const UNKNOWN_LABELS = [translations.en.unknownPlayer, translations.nl.unknownPlayer];
 
 function getDistanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000;
@@ -289,6 +290,7 @@ export default function App() {
     doublesDuration: 60,
     overtimeClaimMin: 5,
     queueClaimMin: 10,
+    lockoutMin: 20,
     geoRadius: 250,
     maintenance: false,
     maintenanceMsg: "",
@@ -315,6 +317,7 @@ export default function App() {
           doublesDuration: s.doublesDuration || 60,
           overtimeClaimMin: s.overtimeClaimMin || 5,
           queueClaimMin: s.queueClaimMin || 10,
+          lockoutMin: s.lockoutMin || 20,
           geoRadius: s.geoRadius || 250,
           maintenance: s.maintenance || false,
           maintenanceMsg: s.maintenanceMsg || "",
@@ -419,6 +422,38 @@ export default function App() {
     }, 10000);
     return () => clearInterval(interval);
   }, [queue, courts, appSettings.queueClaimMin, myEntryId]);
+
+  // Auto-lockout — frees a court by itself if nobody presses "Done" in time
+  async function autoFreeCourt(court) {
+    const durationMin = Math.floor((Date.now() - court.startedAt) / 60000);
+    await addDoc(collection(db, "sessions"), {
+      name: court.players || "Unknown",
+      type: court.type,
+      courtId: court.id,
+      startedAt: court.startedAt,
+      endedAt: Date.now(),
+      durationMin,
+      date: new Date().toISOString().split("T")[0],
+    });
+    const firstInQueue = queue[0];
+    if (firstInQueue) {
+      await updateDoc(doc(db, "queue", firstInQueue.id), { notify: Date.now(), notifiedAt: Date.now() });
+    }
+    await updateDoc(doc(db, "courts", String(court.id)), { status: "free", players: null, type: null, startedAt: null });
+  }
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const lockoutMin = appSettings.lockoutMin || 20;
+      courts.forEach(court => {
+        if (court.status !== "occupied" || !court.startedAt) return;
+        const limit = court.type === "singles" ? (appSettings.singlesDuration || 45) : (appSettings.doublesDuration || 60);
+        const overtimeMin = (Date.now() - court.startedAt) / 60000 - limit;
+        if (overtimeMin >= lockoutMin) autoFreeCourt(court);
+      });
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [courts, queue, appSettings.lockoutMin, appSettings.singlesDuration, appSettings.doublesDuration]);
 
   function notify(msg) {
     setNotification(msg);
@@ -723,7 +758,9 @@ export default function App() {
                   <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
                   {(() => {
                     const myEntry = queue.find(q => q.id === myEntryId);
-                    if (myEntry?.position === 1) return (
+                    const isUnknownMatch = UNKNOWN_LABELS.includes(court.players);
+                    const canRemove = myEntry?.position === 1 || (isUnknownMatch && myEntry);
+                    if (canRemove) return (
                       <button className="force-free-btn" onClick={() => forceFreeCourt(court.id)} title={t.forceFreeTitle || "Free this court"}>✕</button>
                     );
                     return null;

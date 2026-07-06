@@ -140,7 +140,7 @@ function SettingsTab({ db, settings, setSavingSettings, savingSettings }) {
   const [form, setForm] = useState({
     testMode: false, maintenance: false, maintenanceMsg: "",
     welcomeMsg: "", singlesDuration: 45, doublesDuration: 60,
-    overtimeClaimMin: 5, queueClaimMin: 10, geoRadius: 250,
+    overtimeClaimMin: 5, queueClaimMin: 10, lockoutMin: 20, geoRadius: 250,
   });
   const [saved, setSaved] = useState(false);
 
@@ -208,6 +208,11 @@ function SettingsTab({ db, settings, setSavingSettings, savingSettings }) {
           <div className="a-settings-sublabel">Minutes to claim court before losing queue spot (min)</div>
           <input className="a-settings-input" type="number" min="1" max="30"
             value={form.queueClaimMin} onChange={e => { const v = e.target.value; setForm(f => ({...f, queueClaimMin: v === "" ? "" : parseInt(v) || f.queueClaimMin})); }}/>
+        </div>
+        <div className="a-settings-field" style={{marginTop:10}}>
+          <div className="a-settings-sublabel">Auto-lockout: minutes past overtime before a court frees itself (min)</div>
+          <input className="a-settings-input" type="number" min="1" max="120"
+            value={form.lockoutMin} onChange={e => { const v = e.target.value; setForm(f => ({...f, lockoutMin: v === "" ? "" : parseInt(v) || f.lockoutMin})); }}/>
         </div>
       </div>
 
