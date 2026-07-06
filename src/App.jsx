@@ -669,6 +669,7 @@ export default function App() {
   const myEntry = queue.find(q => q.id === myEntryId);
   const freeCourts = courts.filter(c => c.status === "free");
   const isMyTurn = myEntry?.position === 1 && freeCourts.length > 0;
+  const canPlayNow = freeCourts.length > 0 && queue.length === 0;
 
   return (
     <div className="app">
@@ -841,7 +842,9 @@ export default function App() {
 
       {!myEntryId && screen !== "join" && (
         <div className="join-section">
-          <button className="join-big-btn" onClick={() => setScreen("join")}>{t.joinQueue}</button>
+          <button className={`join-big-btn ${canPlayNow ? "play-now" : ""}`} onClick={() => setScreen("join")}>
+            {canPlayNow ? t.goPlay : t.joinQueue}
+          </button>
         </div>
       )}
 
@@ -1073,6 +1076,7 @@ const styles = `
   .join-section { padding: 16px 16px 0; position: relative; z-index: 1; }
   .join-big-btn { width: 100%; background: var(--primary); color: white; border: none; border-radius: 14px; padding: 18px; font-family: 'Archivo Black', sans-serif; font-size: 15px; letter-spacing: 1px; cursor: pointer; transition: transform 0.15s, opacity 0.15s; box-shadow: 0 4px 20px var(--primary-glow); }
   .join-big-btn:active { transform: scale(0.98); opacity: 0.9; }
+  .join-big-btn.play-now { background: var(--court-green); box-shadow: 0 4px 20px var(--green-glow); }
 
   .about-link-wrap { text-align: center; padding: 16px; position: relative; z-index: 1; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
   .about-link { background: var(--bg-card); border: 1px solid var(--border) !important; color: var(--text-muted); font-size: 12px; cursor: pointer; font-family: 'Archivo', sans-serif; text-decoration: none; padding: 8px 14px; border-radius: 20px; transition: all 0.2s; }
