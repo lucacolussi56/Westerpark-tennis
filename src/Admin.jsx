@@ -8,16 +8,6 @@ import {
 } from "firebase/auth";
 import { db, auth } from "./firebase";
 
-function TennisBallIcon({ size = 22 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9"/>
-      <path d="M4.2 7.8C7 9.5 7 14.5 4.2 16.2"/>
-      <path d="M19.8 7.8C17 9.5 17 14.5 19.8 16.2"/>
-    </svg>
-  );
-}
-
 function StarDisplay({ rating }) {
   return (
     <span className="a-stars">
@@ -413,7 +403,6 @@ export default function Admin() {
     <div className="admin">
       <style>{adminStyles}</style>
       <header className="a-header">
-        <div className="a-logo"><TennisBallIcon/></div>
         <div>
           <div className="a-title"><span>Wester</span><span>park</span> Admin</div>
           <div className="a-sub">Westerpark Tennis</div>
@@ -813,7 +802,6 @@ const adminStyles = `
     border-bottom: 1px solid var(--border);
     background: rgba(26,33,24,0.9); backdrop-filter: blur(10px);
   }
-  .a-logo { color: var(--primary); display: flex; align-items: center; }
   .a-title { font-family: 'Archivo Black', sans-serif; font-size: 16px; }
   .a-title span:first-child { color: var(--primary); }
   .a-title span:last-child { color: var(--court-green); }
