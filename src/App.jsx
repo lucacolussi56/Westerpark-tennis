@@ -23,6 +23,24 @@ function getDistanceMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Rough ETA for a queue position: how long until each court's current match
+// ends (0 if already free/overtime), then adds a full average-duration round
+// for every extra lap around the courts beyond the first.
+function estimateWaitMinutes(position, courts, singlesDuration, doublesDuration) {
+  const numCourts = courts.length || 1;
+  const now = Date.now();
+  const remaining = courts.map(c => {
+    if (c.status !== "occupied" || !c.startedAt) return 0;
+    const limit = c.type === "singles" ? singlesDuration : doublesDuration;
+    return Math.max(0, limit - (now - c.startedAt) / 60000);
+  }).sort((a, b) => a - b);
+  const avgDuration = (singlesDuration + doublesDuration) / 2;
+  const idx = position - 1;
+  const base = remaining[idx % numCourts] || 0;
+  const extraRounds = Math.floor(idx / numCourts);
+  return Math.max(0, Math.round(base + extraRounds * avgDuration));
+}
+
 function useTimer(startedAt, limitMinutes) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -102,7 +120,7 @@ function QueueItemCountdown({ notifiedAt, claimMin }) {
   );
 }
 
-function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t, claimMin }) {
+function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t, claimMin, etaMin }) {
   const waitMin = Math.floor((Date.now() - item.joinedAt) / 60000);
   return (
     <div className={`queue-item ${isYou ? "is-you" : ""} ${isNext ? "is-next" : ""}`}>
@@ -115,6 +133,9 @@ function QueueItem({ item, isYou, onLeave, onConfirmLeave, isNext, t, claimMin }
         <div className="queue-meta">
           <span className={`queue-type ${item.type}`}>{item.type === "singles" ? t.singlesShort : t.doublesShort}</span>
           <span className="queue-wait">{waitMin} min</span>
+          {!isNext && etaMin != null && (
+            <span className="queue-eta" title={t.estimatedWaitTitle || "Estimated wait"}>≈{etaMin} min</span>
+          )}
         </div>
         {isNext && item.notifiedAt && (
           <QueueItemCountdown notifiedAt={item.notifiedAt} claimMin={claimMin}/>
@@ -373,6 +394,8 @@ export default function App() {
   const [showConfirmLeave, setShowConfirmLeave] = useState(false);
   const [someonePlayCourt, setSomeonePlayCourt] = useState(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
+  const [forceFreeCourtId, setForceFreeCourtId] = useState(null);
+  const [forceFreeStep, setForceFreeStep] = useState(1);
 
   // Track page view
   useEffect(() => { logEvent(analytics, "page_view"); }, []);
@@ -547,21 +570,20 @@ export default function App() {
     setTimeout(() => setNotification(null), 5000);
   }
 
-  function checkGeo(callback) {
-    setGeoStatus("checking");
+  function checkGeo(setStatus) {
+    setStatus("checking");
     // In test mode, simulate successful geo check after a short delay
     if (testMode) {
-      setTimeout(() => { setGeoStatus("ok"); callback(); }, 800);
+      setTimeout(() => setStatus("ok"), 800);
       return;
     }
-    if (!navigator.geolocation) { setGeoStatus("ok"); callback(); return; }
+    if (!navigator.geolocation) { setStatus("ok"); return; }
     navigator.geolocation.getCurrentPosition(
       pos => {
         const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
-        if (dist <= MAX_DISTANCE_METERS) { setGeoStatus("ok"); callback(); }
-        else setGeoStatus("far");
+        setStatus(dist <= MAX_DISTANCE_METERS ? "ok" : "far");
       },
-      () => setGeoStatus("denied"),
+      () => setStatus("denied"),
       { timeout: 6000, maximumAge: 30000 }
     );
   }
@@ -602,20 +624,24 @@ export default function App() {
     setGeoStatusSomeone("idle");
   }
 
-  async function forceFreeCourt(courtId) {
-    // Double confirmation
-    const first = window.confirm(
-      t.forceFreeConfirm1 || "Are you sure the court is free? Only do this if the players have left or agreed to stop."
-    );
-    if (!first) return;
-    const second = window.confirm(
-      t.forceFreeConfirm2 || "Final check — have you confirmed with the other players that they are OK with this?"
-    );
-    if (!second) return;
+  async function doForceFreeCourt(courtId) {
     await updateDoc(doc(db, "courts", String(courtId)), {
       status: "free", players: null, type: null, startedAt: null
     });
     notify("✅ Court freed.");
+  }
+
+  async function joinAndPlay(courtId) {
+    if (!form.name.trim()) return;
+    await updateDoc(doc(db, "courts", String(courtId)), {
+      status: "occupied", players: form.name.trim(), type: form.type, startedAt: Date.now()
+    });
+    const playing = { courtId, startedAt: Date.now(), type: form.type, playerName: form.name.trim() };
+    setMyPlaying(playing);
+    setGeoStatus("idle");
+    localStorage.setItem("myPlaying", JSON.stringify(playing));
+    logEvent(analytics, "start_playing", { court: courtId, type: form.type });
+    setScreen("playing");
   }
 
   async function claimCourt(courtId) {
@@ -770,23 +796,18 @@ export default function App() {
                 </div>
                 <button className="confirm-btn" disabled={!form.name.trim()} onClick={() => {
                   if (!form.name.trim()) return;
-                  setGeoStatusSomeone("checking");
-                  if (testMode) { setTimeout(() => setGeoStatusSomeone("ok"), 800); return; }
-                  if (!navigator.geolocation) { setGeoStatusSomeone("ok"); return; }
-                  navigator.geolocation.getCurrentPosition(
-                    pos => {
-                      const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
-                      setGeoStatusSomeone(dist <= MAX_DISTANCE_METERS ? "ok" : "far");
-                    },
-                    () => setGeoStatusSomeone("denied"),
-                    { timeout: 6000, maximumAge: 30000 }
-                  );
+                  checkGeo(setGeoStatusSomeone);
                 }}>{t.verifyLocation}</button>
               </>
             )}
 
             {geoStatusSomeone === "checking" && <div className="geo-status">{t.checking}</div>}
-            {geoStatusSomeone === "far" && <div className="geo-status error">{t.tooFar}</div>}
+            {geoStatusSomeone === "far" && (
+              <div className="geo-status error">
+                {t.tooFar}
+                <button className="confirm-btn" style={{marginTop:12}} onClick={() => checkGeo(setGeoStatusSomeone)}>{t.retryLocation || "🔄 Try again"}</button>
+              </div>
+            )}
 
             {geoStatusSomeone === "denied" && (
               <div className="geo-status warning">
@@ -816,6 +837,25 @@ export default function App() {
             <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:20}}>{t.confirmLeaveText || "You will lose your spot. You can rejoin but you will go to the back of the queue."}</p>
             <button className="confirm-btn" style={{background:"#ff4444",marginBottom:10}} onClick={() => { leaveQueue(); setShowConfirmLeave(false); }}>{t.confirmLeaveYes || "Yes, leave the queue"}</button>
             <button className="confirm-btn" style={{background:"var(--bg-card-hover)",color:"var(--text)"}} onClick={() => setShowConfirmLeave(false)}>{t.confirmLeaveNo || "No, stay in the queue"}</button>
+          </div>
+        </div>
+      )}
+
+      {forceFreeCourtId && (
+        <div className="modal-overlay" onClick={() => setForceFreeCourtId(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h3>⚠️ {t.forceFreeTitle || "Free this court"}</h3>
+            <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:20,whiteSpace:"pre-line"}}>
+              {forceFreeStep === 1 ? t.forceFreeConfirm1 : t.forceFreeConfirm2}
+            </p>
+            <button className="confirm-btn" style={{background:"#ff4444",marginBottom:10}} onClick={() => {
+              if (forceFreeStep === 1) { setForceFreeStep(2); return; }
+              doForceFreeCourt(forceFreeCourtId);
+              setForceFreeCourtId(null);
+            }}>{forceFreeStep === 1 ? (t.forceFreeContinue || "Continue") : (t.forceFreeYes || "Yes, free it")}</button>
+            <button className="confirm-btn" style={{background:"var(--bg-card-hover)",color:"var(--text)"}} onClick={() => setForceFreeCourtId(null)}>
+              {forceFreeStep === 1 ? (t.forceFreeCancel || "Cancel") : (t.forceFreeNo || "No, cancel")}
+            </button>
           </div>
         </div>
       )}
@@ -854,7 +894,7 @@ export default function App() {
                     const isUnknownMatch = UNKNOWN_LABELS.includes(court.players);
                     const canRemove = myEntry?.position === 1 || (isUnknownMatch && myEntry);
                     if (canRemove) return (
-                      <button className="force-free-btn" onClick={() => forceFreeCourt(court.id)} title={t.forceFreeTitle || "Free this court"}>✕</button>
+                      <button className="force-free-btn" onClick={() => { setForceFreeCourtId(court.id); setForceFreeStep(1); }} title={t.forceFreeTitle || "Free this court"}>✕</button>
                     );
                     return null;
                   })()}
@@ -902,7 +942,8 @@ export default function App() {
             {queue.map(item => (
               <QueueItem key={item.id} item={item} isYou={myEntryId === item.id}
                 isNext={item.position === 1 && freeCourts.length > 0}
-                onLeave={leaveQueue} onConfirmLeave={() => setShowConfirmLeave(true)} t={t} claimMin={appSettings.queueClaimMin}/>
+                onLeave={leaveQueue} onConfirmLeave={() => setShowConfirmLeave(true)} t={t} claimMin={appSettings.queueClaimMin}
+                etaMin={estimateWaitMinutes(item.position, courts, appSettings.singlesDuration || 45, appSettings.doublesDuration || 60)}/>
             ))}
           </div>
         )}
@@ -937,21 +978,46 @@ export default function App() {
                   <button className={form.type === "singles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "singles"}))}>{t.singlesTime}</button>
                   <button className={form.type === "doubles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "doubles"}))}>{t.doublesTime}</button>
                 </div>
-                <button className="confirm-btn" disabled={!form.name.trim()} onClick={() => checkGeo(() => {})}>{t.verifyLocation}</button>
+                <button className="confirm-btn" disabled={!form.name.trim()} onClick={() => checkGeo(setGeoStatus)}>{t.verifyLocation}</button>
               </>
             )}
             {geoStatus === "checking" && <div className="geo-status">{t.checking}</div>}
-            {geoStatus === "far" && <div className="geo-status error">{t.tooFar}</div>}
+            {geoStatus === "far" && (
+              <div className="geo-status error">
+                {t.tooFar}
+                <button className="confirm-btn" style={{marginTop:12}} onClick={() => checkGeo(setGeoStatus)}>{t.retryLocation || "🔄 Try again"}</button>
+              </div>
+            )}
             {geoStatus === "denied" && (
               <div className="geo-status warning">
                 {t.locationDenied}
-                <button className="confirm-btn" style={{marginTop:12}} onClick={joinQueue} disabled={!form.name.trim()}>{t.confirmJoin}</button>
+                {canPlayNow ? (
+                  <div style={{display:"flex", gap:8, marginTop:12}}>
+                    {freeCourts.map(c => (
+                      <button key={c.id} className="confirm-btn" style={{flex:1}} disabled={!form.name.trim()} onClick={() => joinAndPlay(c.id)}>
+                        {c.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <button className="confirm-btn" style={{marginTop:12}} onClick={joinQueue} disabled={!form.name.trim()}>{t.confirmJoin}</button>
+                )}
               </div>
             )}
             {geoStatus === "ok" && (
               <div className="geo-status success">
                 {t.locationOk}
-                <button className="confirm-btn" style={{marginTop:12}} onClick={joinQueue}>{t.confirmJoin}</button>
+                {canPlayNow ? (
+                  <div style={{display:"flex", gap:8, marginTop:12}}>
+                    {freeCourts.map(c => (
+                      <button key={c.id} className="confirm-btn" style={{flex:1}} onClick={() => joinAndPlay(c.id)}>
+                        {c.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <button className="confirm-btn" style={{marginTop:12}} onClick={joinQueue}>{t.confirmJoin}</button>
+                )}
               </div>
             )}
           </div>
@@ -1131,6 +1197,7 @@ const styles = `
   .queue-type.singles { background: rgba(192,57,43,0.12); color: var(--primary); }
   .queue-type.doubles { background: rgba(96,165,250,0.12); color: #60a5fa; }
   .queue-wait { font-size: 10px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+  .queue-eta { font-size: 10px; color: var(--court-green); font-family: 'DM Mono', monospace; }
 
   .queue-info { flex: 1; }
   .leave-btn  { background: rgba(255,68,68,0.1); color: #ff6666; border: 1px solid rgba(255,68,68,0.2); border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; }
