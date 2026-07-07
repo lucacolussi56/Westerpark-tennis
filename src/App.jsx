@@ -11,6 +11,7 @@ let GEO_COORDS = { lat: 52.387583, lng: 4.875667 };
 let MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
 const OVERTIME_CLAIM_MIN = 5;   // minuti di overtime prima che il primo in fila possa liberare il campo
+const GEO_TRUST_MS = 60 * 60 * 1000; // how long a confirmed location stays trusted before re-asking
 // Google Apps Script Web App URL (script.google.com) — sends an urgent email on new problem reports. See setup notes.
 const REPORT_PROBLEM_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzKl-u9JBeDB67HLaF6y8GQq7ftVnr-TIZ8R_uQUUEF9GeEFLQDLuUATzuKXlSnwpJO/exec";
 
@@ -373,7 +374,7 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [form, setForm] = useState({ name: "", type: "singles" });
   const [geoStatus, setGeoStatus] = useState("idle");
-  const [geoVerified, setGeoVerified] = useState(false); // true once location's been confirmed this session
+  const [geoVerifiedAt, setGeoVerifiedAt] = useState(null); // timestamp of last confirmed location, expires below
   const [geoStatusSomeone, setGeoStatusSomeone] = useState("idle");
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -575,20 +576,24 @@ export default function App() {
     setTimeout(() => setNotification(null), 5000);
   }
 
+  function isGeoFresh() {
+    return geoVerifiedAt != null && (Date.now() - geoVerifiedAt) < GEO_TRUST_MS;
+  }
+
   function checkGeo(setStatus) {
-    // Already proven you're at the courts once this session — don't ask again.
-    if (geoVerified) { setStatus("ok"); return; }
+    // Already proven you're at the courts recently — don't ask again until it expires.
+    if (isGeoFresh()) { setStatus("ok"); return; }
     setStatus("checking");
     // In test mode, simulate successful geo check after a short delay
     if (testMode) {
-      setTimeout(() => { setGeoVerified(true); setStatus("ok"); }, 800);
+      setTimeout(() => { setGeoVerifiedAt(Date.now()); setStatus("ok"); }, 800);
       return;
     }
-    if (!navigator.geolocation) { setGeoVerified(true); setStatus("ok"); return; }
+    if (!navigator.geolocation) { setGeoVerifiedAt(Date.now()); setStatus("ok"); return; }
     navigator.geolocation.getCurrentPosition(
       pos => {
         const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
-        if (dist <= MAX_DISTANCE_METERS) { setGeoVerified(true); setStatus("ok"); }
+        if (dist <= MAX_DISTANCE_METERS) { setGeoVerifiedAt(Date.now()); setStatus("ok"); }
         else setStatus("far");
       },
       () => setStatus("denied"),
@@ -900,7 +905,7 @@ export default function App() {
               <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
                 <div style={{position:"relative"}}>
                   <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
-                  <button className="force-free-btn" onClick={() => { setForceFreeCourtId(court.id); setForceFreeStep(1); setForceFreeGeo(geoVerified ? "ok" : "idle"); }} title={t.forceFreeTitle || "Free this court"}>✕</button>
+                  <button className="force-free-btn" onClick={() => { setForceFreeCourtId(court.id); setForceFreeStep(1); setForceFreeGeo(isGeoFresh() ? "ok" : "idle"); }} title={t.forceFreeTitle || "Free this court"}>✕</button>
                 </div>
                 {(() => {
                   const limit = court.type === "singles" ? (appSettings.singlesDuration || 45) : (appSettings.doublesDuration || 60);
@@ -929,7 +934,7 @@ export default function App() {
                 <button className="someone-btn" onClick={() => {
                   setSomeonePlayCourt(court.id);
                   setSomeoneType("singles");
-                  setGeoStatusSomeone(geoVerified ? "ok" : "idle");
+                  setGeoStatusSomeone(isGeoFresh() ? "ok" : "idle");
                 }}>{t.someoneIsPlaying || "Someone is playing →"}</button>
               </div>
             )
@@ -955,7 +960,7 @@ export default function App() {
 
       {!myEntryId && screen !== "join" && (
         <div className="join-section">
-          <button className={`join-big-btn ${canPlayNow ? "play-now" : ""}`} onClick={() => { setScreen("join"); setGeoStatus(geoVerified ? "ok" : "idle"); }}>
+          <button className={`join-big-btn ${canPlayNow ? "play-now" : ""}`} onClick={() => { setScreen("join"); setGeoStatus(isGeoFresh() ? "ok" : "idle"); }}>
             {canPlayNow ? t.goPlay : t.joinQueue}
           </button>
         </div>
