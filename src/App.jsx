@@ -93,6 +93,16 @@ function CourtTimer({ court, t, singlesDuration, doublesDuration }) {
   );
 }
 
+function TennisBallIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M4.2 7.8C7 9.5 7 14.5 4.2 16.2"/>
+      <path d="M19.8 7.8C17 9.5 17 14.5 19.8 16.2"/>
+    </svg>
+  );
+}
+
 function QueueItemCountdown({ notifiedAt, claimMin }) {
   const [remaining, setRemaining] = useState(null);
   useEffect(() => {
@@ -315,7 +325,7 @@ function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration,
       <div className="bg-court"/>
       <style>{styles}</style>
       <header>
-        <div className="logo">🎾</div>
+        <div className="logo"><TennisBallIcon/></div>
         <div className="header-text">
           <div className="site-name">{t.playing}</div>
           <div className="site-sub">{myPlaying.courtId === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
@@ -879,7 +889,7 @@ export default function App() {
       )}
 
       <header>
-        <div className="logo">🎾</div>
+        <div className="logo"><TennisBallIcon/></div>
         <div className="header-text">
           <div className="site-name"><span style={{color:"var(--primary)"}}>Wester</span><span style={{color:"var(--court-green)"}}>park</span></div>
           <div className="site-sub">{t.appSub}</div>
@@ -1130,7 +1140,7 @@ const styles = `
     backdrop-filter: blur(10px);
   }
 
-  .logo { font-size: 26px; }
+  .logo { color: var(--primary); display: flex; align-items: center; }
   .site-name { font-family: 'Archivo Black', sans-serif; font-size: 17px; letter-spacing: -0.3px; color: var(--text); }
   .site-sub  { font-size: 10px; color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase; }
 
