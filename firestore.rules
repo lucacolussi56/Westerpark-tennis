@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'lucacolussi56@gmail.com';
+    }
+
+    // Open by design: any visitor at the court can mark courts occupied/free
+    // and join/leave the queue without an account.
+    match /courts/{courtId} {
+      allow read, write: if true;
+    }
+    match /queue/{entryId} {
+      allow read, write: if true;
+    }
+
+    // Match history: anyone can log a finished session, but only the admin
+    // can read, edit or delete history (leaderboard integrity + no public read).
+    match /sessions/{sessionId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Feedback/problem reports: anyone can submit, only the admin can read or remove.
+    match /feedback/{feedbackId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+    match /problems/{problemId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // App-wide config (maintenance mode, durations, geo radius): admin only.
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

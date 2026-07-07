@@ -3,11 +3,10 @@ import {
   collection, onSnapshot, query, orderBy,
   deleteDoc, doc, updateDoc, setDoc, getDoc, addDoc, where
 } from "firebase/firestore";
-import { db } from "./firebase";
-
-// ─── CHANGE THIS PASSWORD ─────────────────────────────────────────────────────
-const ADMIN_PASSWORD = "LUCA";
-// ─────────────────────────────────────────────────────────────────────────────
+import {
+  onAuthStateChanged, signInWithEmailAndPassword, signOut
+} from "firebase/auth";
+import { db, auth } from "./firebase";
 
 function StarDisplay({ rating }) {
   return (
@@ -252,8 +251,11 @@ function AddToCourtFormInline({ db, courtId }) {
 
 export default function Admin() {
   const [authed, setAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [email, setEmail] = useState("");
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   const [feedback, setFeedback] = useState([]);
   const [problems, setProblems] = useState([]);
@@ -267,12 +269,23 @@ export default function Admin() {
   const [tab, setTab] = useState("overview");
   const [deleting, setDeleting] = useState(null);
 
-  function login() {
-    if (input === ADMIN_PASSWORD) {
-      setAuthed(true);
-      setError(false);
-    } else {
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, user => {
+      setAuthed(!!user);
+      setAuthChecked(true);
+    });
+    return unsub;
+  }, []);
+
+  async function login() {
+    setLoggingIn(true);
+    setError(false);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), input);
+    } catch (err) {
       setError(true);
+    } finally {
+      setLoggingIn(false);
     }
   }
 
@@ -348,6 +361,8 @@ export default function Admin() {
     await deleteDoc(doc(db, "queue", id));
   }
 
+  if (!authChecked) return null;
+
   if (!authed) {
     return (
       <div className="admin-login">
@@ -357,15 +372,24 @@ export default function Admin() {
           <h2>Admin Access</h2>
           <p>Westerpark Tennis</p>
           <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && login()}
+            placeholder="Email"
+            autoFocus
+          />
+          <input
             type="password"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && login()}
             placeholder="Password"
-            autoFocus
           />
-          {error && <div className="login-error">Incorrect password</div>}
-          <button onClick={login}>Enter →</button>
+          {error && <div className="login-error">Incorrect email or password</div>}
+          <button onClick={login} disabled={loggingIn || !email.trim() || !input}>
+            {loggingIn ? "..." : "Enter →"}
+          </button>
         </div>
       </div>
     );
@@ -384,7 +408,7 @@ export default function Admin() {
           <div className="a-title"><span>Wester</span><span>park</span> Admin</div>
           <div className="a-sub">Westerpark Tennis</div>
         </div>
-        <button className="a-logout" onClick={() => setAuthed(false)}>Logout</button>
+        <button className="a-logout" onClick={() => signOut(auth)}>Logout</button>
       </header>
 
       <div className="a-tabs">
