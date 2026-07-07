@@ -373,6 +373,7 @@ export default function App() {
   const [screen, setScreen] = useState("home");
   const [form, setForm] = useState({ name: "", type: "singles" });
   const [geoStatus, setGeoStatus] = useState("idle");
+  const [geoVerified, setGeoVerified] = useState(false); // true once location's been confirmed this session
   const [geoStatusSomeone, setGeoStatusSomeone] = useState("idle");
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -575,17 +576,20 @@ export default function App() {
   }
 
   function checkGeo(setStatus) {
+    // Already proven you're at the courts once this session — don't ask again.
+    if (geoVerified) { setStatus("ok"); return; }
     setStatus("checking");
     // In test mode, simulate successful geo check after a short delay
     if (testMode) {
-      setTimeout(() => setStatus("ok"), 800);
+      setTimeout(() => { setGeoVerified(true); setStatus("ok"); }, 800);
       return;
     }
-    if (!navigator.geolocation) { setStatus("ok"); return; }
+    if (!navigator.geolocation) { setGeoVerified(true); setStatus("ok"); return; }
     navigator.geolocation.getCurrentPosition(
       pos => {
         const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
-        setStatus(dist <= MAX_DISTANCE_METERS ? "ok" : "far");
+        if (dist <= MAX_DISTANCE_METERS) { setGeoVerified(true); setStatus("ok"); }
+        else setStatus("far");
       },
       () => setStatus("denied"),
       { timeout: 6000, maximumAge: 30000 }
@@ -896,7 +900,7 @@ export default function App() {
               <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
                 <div style={{position:"relative"}}>
                   <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
-                  <button className="force-free-btn" onClick={() => { setForceFreeCourtId(court.id); setForceFreeStep(1); setForceFreeGeo("idle"); }} title={t.forceFreeTitle || "Free this court"}>✕</button>
+                  <button className="force-free-btn" onClick={() => { setForceFreeCourtId(court.id); setForceFreeStep(1); setForceFreeGeo(geoVerified ? "ok" : "idle"); }} title={t.forceFreeTitle || "Free this court"}>✕</button>
                 </div>
                 {(() => {
                   const limit = court.type === "singles" ? (appSettings.singlesDuration || 45) : (appSettings.doublesDuration || 60);
@@ -925,7 +929,7 @@ export default function App() {
                 <button className="someone-btn" onClick={() => {
                   setSomeonePlayCourt(court.id);
                   setSomeoneType("singles");
-                  setGeoStatusSomeone("idle");
+                  setGeoStatusSomeone(geoVerified ? "ok" : "idle");
                 }}>{t.someoneIsPlaying || "Someone is playing →"}</button>
               </div>
             )
@@ -951,7 +955,7 @@ export default function App() {
 
       {!myEntryId && screen !== "join" && (
         <div className="join-section">
-          <button className={`join-big-btn ${canPlayNow ? "play-now" : ""}`} onClick={() => setScreen("join")}>
+          <button className={`join-big-btn ${canPlayNow ? "play-now" : ""}`} onClick={() => { setScreen("join"); setGeoStatus(geoVerified ? "ok" : "idle"); }}>
             {canPlayNow ? t.goPlay : t.joinQueue}
           </button>
         </div>
