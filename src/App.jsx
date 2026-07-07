@@ -11,7 +11,6 @@ let GEO_COORDS = { lat: 52.387583, lng: 4.875667 };
 let MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
 const OVERTIME_CLAIM_MIN = 5;   // minuti di overtime prima che il primo in fila possa liberare il campo
-const UNKNOWN_LABELS = [translations.en.unknownPlayer, translations.nl.unknownPlayer];
 // Google Apps Script Web App URL (script.google.com) — sends an urgent email on new problem reports. See setup notes.
 const REPORT_PROBLEM_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzKl-u9JBeDB67HLaF6y8GQq7ftVnr-TIZ8R_uQUUEF9GeEFLQDLuUATzuKXlSnwpJO/exec";
 
@@ -400,6 +399,7 @@ export default function App() {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [forceFreeCourtId, setForceFreeCourtId] = useState(null);
   const [forceFreeStep, setForceFreeStep] = useState(1);
+  const [forceFreeGeo, setForceFreeGeo] = useState("idle");
 
   // Track page view
   useEffect(() => { logEvent(analytics, "page_view"); }, []);
@@ -832,24 +832,42 @@ export default function App() {
       )}
 
       {forceFreeCourtId && (
-        <div className="modal-overlay" onClick={() => setForceFreeCourtId(null)}>
+        <div className="modal-overlay" onClick={() => { setForceFreeCourtId(null); setForceFreeGeo("idle"); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>⚠️ {t.forceFreeTitle || "Free this court"}</h3>
-            <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:20,whiteSpace:"pre-line"}}>
-              {forceFreeStep === 1 ? t.forceFreeConfirm1 : t.forceFreeConfirm2}
-            </p>
-            <button className="confirm-btn" style={{background:"#ff4444",marginBottom:10}} onClick={() => {
-              if (forceFreeStep === 1) { setForceFreeStep(2); return; }
-              doForceFreeCourt(forceFreeCourtId);
-              setForceFreeCourtId(null);
-            }}>{forceFreeStep === 1 ? (t.forceFreeContinue || "Continue") : (t.forceFreeYes || "Yes, free it")}</button>
-            <button className="confirm-btn" style={{background:"var(--bg-card-hover)",color:"var(--text)"}} onClick={() => setForceFreeCourtId(null)}>
-              {forceFreeStep === 1 ? (t.forceFreeCancel || "Cancel") : (t.forceFreeNo || "No, cancel")}
-            </button>
+
+            {forceFreeGeo === "idle" && (
+              <>
+                <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:16}}>{t.forceFreeConfirm1}</p>
+                <button className="confirm-btn" onClick={() => checkGeo(setForceFreeGeo)}>{t.verifyLocation}</button>
+              </>
+            )}
+            {forceFreeGeo === "checking" && <div className="geo-status">{t.checking}</div>}
+            {forceFreeGeo === "far" && (
+              <div className="geo-status error">
+                {t.tooFar}
+                <button className="confirm-btn" style={{marginTop:12}} onClick={() => checkGeo(setForceFreeGeo)}>{t.retryLocation || "🔄 Try again"}</button>
+              </div>
+            )}
+            {(forceFreeGeo === "ok" || forceFreeGeo === "denied") && (
+              <>
+                <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:20,whiteSpace:"pre-line"}}>
+                  {forceFreeStep === 1 ? t.forceFreeConfirm1 : t.forceFreeConfirm2}
+                </p>
+                <button className="confirm-btn" style={{background:"#ff4444",marginBottom:10}} onClick={() => {
+                  if (forceFreeStep === 1) { setForceFreeStep(2); return; }
+                  doForceFreeCourt(forceFreeCourtId);
+                  setForceFreeCourtId(null);
+                  setForceFreeGeo("idle");
+                }}>{forceFreeStep === 1 ? (t.forceFreeContinue || "Continue") : (t.forceFreeYes || "Yes, free it")}</button>
+                <button className="confirm-btn" style={{background:"var(--bg-card-hover)",color:"var(--text)"}} onClick={() => { setForceFreeCourtId(null); setForceFreeGeo("idle"); }}>
+                  {forceFreeStep === 1 ? (t.forceFreeCancel || "Cancel") : (t.forceFreeNo || "No, cancel")}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
-
 
       <header>
         <div className="logo">🎾</div>
@@ -878,15 +896,7 @@ export default function App() {
               <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
                 <div style={{position:"relative"}}>
                   <CourtTimer key={court.id} court={court} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>
-                  {(() => {
-                    const myEntry = queue.find(q => q.id === myEntryId);
-                    const isUnknownMatch = UNKNOWN_LABELS.includes(court.players);
-                    const canRemove = myEntry?.position === 1 || (isUnknownMatch && myEntry);
-                    if (canRemove) return (
-                      <button className="force-free-btn" onClick={() => { setForceFreeCourtId(court.id); setForceFreeStep(1); }} title={t.forceFreeTitle || "Free this court"}>✕</button>
-                    );
-                    return null;
-                  })()}
+                  <button className="force-free-btn" onClick={() => { setForceFreeCourtId(court.id); setForceFreeStep(1); setForceFreeGeo("idle"); }} title={t.forceFreeTitle || "Free this court"}>✕</button>
                 </div>
                 {(() => {
                   const limit = court.type === "singles" ? (appSettings.singlesDuration || 45) : (appSettings.doublesDuration || 60);
