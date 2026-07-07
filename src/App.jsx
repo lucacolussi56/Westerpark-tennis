@@ -887,7 +887,7 @@ export default function App() {
         <div className="header-right">
           <button className="theme-toggle" onClick={() => changeTheme(theme === "dark" ? "light" : "dark")}
             title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}>
-            {theme === "dark" ? "☀️" : "🌙"}
+            {theme === "dark" ? "🌝" : "🌚"}
           </button>
           <div className="lang-toggle">
             <button className={lang === "en" ? "active" : ""} onClick={() => changeLang("en")}>EN</button>
