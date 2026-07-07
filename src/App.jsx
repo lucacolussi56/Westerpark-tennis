@@ -304,7 +304,7 @@ function ReportProblemModal({ t, onClose }) {
   );
 }
 
-function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration }) {
+function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration, queueCount }) {
   const [confirmDone, setConfirmDone] = useState(false);
   const limit = myPlaying.type === "singles" ? (singlesDuration || 45) : (doublesDuration || 60);
   const { elapsedMin, elapsedSec, remainMin, remainSec, overTime, pct } = useTimer(myPlaying.startedAt, limit);
@@ -321,6 +321,9 @@ function PlayingScreen({ myPlaying, onDone, t, singlesDuration, doublesDuration 
           <div className="site-sub">{myPlaying.courtId === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}</div>
         </div>
       </header>
+      {queueCount > 0 && (
+        <div className="queue-waiting-badge">🎾 {queueCount} {t.queueWaitingLabel || "waiting"}</div>
+      )}
       <div className="big-timer">
         <svg width="200" height="200" viewBox="0 0 200 200">
           <circle cx="100" cy="100" r="70" fill="none" style={{stroke: "var(--border)"}} strokeWidth="10"/>
@@ -588,7 +591,7 @@ export default function App() {
     );
   }
 
-  async function joinQueue() {
+  async function joinQueue(wantNotif) {
     if (!form.name.trim()) return;
     if (myEntryId) return; // Already in queue
     const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
@@ -598,13 +601,14 @@ export default function App() {
     setGeoStatus("idle");
     notify(t.notifJoined);
     logEvent(analytics, "join_queue", { type: form.type });
-    // Request notification permission and save token
-    const token = await requestNotificationPermission();
-    if (token) {
-      await updateDoc(doc(db, "queue", id), { fcmToken: token });
-      setNotifEnabled(true);
-    }
     localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
+    if (wantNotif) {
+      const token = await requestNotificationPermission();
+      if (token) {
+        await updateDoc(doc(db, "queue", id), { fcmToken: token });
+        setNotifEnabled(true);
+      }
+    }
   }
 
   async function markCourtOccupied() {
@@ -757,7 +761,7 @@ export default function App() {
     </div>
   );
 
-  if (screen === "playing" && myPlaying) return <PlayingScreen myPlaying={myPlaying} onDone={markDone} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration}/>;
+  if (screen === "playing" && myPlaying) return <PlayingScreen myPlaying={myPlaying} onDone={markDone} t={t} singlesDuration={appSettings.singlesDuration} doublesDuration={appSettings.doublesDuration} queueCount={queue.length}/>;
 
   const myEntry = queue.find(q => q.id === myEntryId);
   const freeCourts = courts.filter(c => c.status === "free");
@@ -879,12 +883,10 @@ export default function App() {
         </div>
       </header>
 
-      {loading && <div className="loading">{t.connecting}</div>}
-
       <section className="section">
         <h2 className="section-title">{t.courts}</h2>
         <div className="courts-grid">
-          {courts.map(court =>
+          {loading ? COURTS.map(id => <div key={id} className="court-card skeleton"/>) : courts.map(court =>
             court.status === "occupied" ? (
               <div key={court.id} style={{display:"flex",flexDirection:"column",gap:8}}>
                 <div style={{position:"relative"}}>
@@ -1000,7 +1002,7 @@ export default function App() {
                     ))}
                   </div>
                 ) : (
-                  <button className="confirm-btn" style={{marginTop:12}} onClick={joinQueue} disabled={!form.name.trim()}>{t.confirmJoin}</button>
+                  <button className="confirm-btn" style={{marginTop:12}} onClick={() => setGeoStatus("notifAsk")} disabled={!form.name.trim()}>{t.confirmJoin}</button>
                 )}
               </div>
             )}
@@ -1016,8 +1018,19 @@ export default function App() {
                     ))}
                   </div>
                 ) : (
-                  <button className="confirm-btn" style={{marginTop:12}} onClick={joinQueue}>{t.confirmJoin}</button>
+                  <button className="confirm-btn" style={{marginTop:12}} onClick={() => setGeoStatus("notifAsk")}>{t.confirmJoin}</button>
                 )}
+              </div>
+            )}
+            {geoStatus === "notifAsk" && (
+              <div className="geo-status">
+                <div style={{fontSize:32,marginBottom:8}}>🔔</div>
+                <h3 style={{marginTop:0}}>{t.notifAskTitle || "Get notified?"}</h3>
+                <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:16}}>
+                  {t.notifAskText || "We can alert you when it's your turn, so you don't have to keep checking."}
+                </p>
+                <button className="confirm-btn" style={{marginBottom:10}} onClick={() => joinQueue(true)}>{t.notifEnableBtn || "🔔 Enable notifications"}</button>
+                <button className="confirm-btn" style={{background:"var(--bg-card-hover)",color:"var(--text)"}} onClick={() => joinQueue(false)}>{t.notifSkipBtn || "Skip"}</button>
               </div>
             )}
           </div>
@@ -1154,6 +1167,9 @@ const styles = `
   .court-card.over::before { background: var(--danger); opacity: 0.8; }
   .court-card.free    { border-color: rgba(128,164,120,0.4); background: rgba(128,164,120,0.05); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 160px; gap: 10px; }
   .court-card.free::before { background: var(--court-green); opacity: 0.5; }
+  .court-card.skeleton { min-height: 160px; background: var(--bg-card); animation: skeletonPulse 1.4s ease-in-out infinite; }
+  .court-card.skeleton::before { display: none; }
+  @keyframes skeletonPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
   .court-name-centered { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 2px; color: var(--text-faint); text-align: center; text-transform: uppercase; }
   @keyframes redpulse { 0%,100%{border-color:rgba(255,68,68,0.5)} 50%{border-color:rgba(255,68,68,0.9)} }
 
@@ -1261,6 +1277,7 @@ const styles = `
   @keyframes slideDown { from{top:-40px;opacity:0} to{top:16px;opacity:1} }
 
   .playing-screen { display: flex; flex-direction: column; align-items: center; padding-bottom: 40px; }
+  .queue-waiting-badge { margin-top: 10px; font-size: 12px; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; font-family: 'DM Mono', monospace; }
   .big-timer { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; }
   .overtime-big { margin-top: 16px; color: var(--danger); font-size: 14px; font-family: 'DM Mono', monospace; letter-spacing: 1px; animation: blink 2s ease-in-out infinite; }
   .done-btn { background: var(--primary); color: white; border: none; border-radius: 14px; padding: 18px 40px; font-family: 'Archivo Black', sans-serif; font-size: 16px; cursor: pointer; margin: 0 20px; width: calc(100% - 40px); box-shadow: 0 4px 20px var(--primary-glow); }
