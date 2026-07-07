@@ -396,6 +396,7 @@ export default function App() {
   const [showFairPlay, setShowFairPlay] = useState(false);
   const [showConfirmLeave, setShowConfirmLeave] = useState(false);
   const [someonePlayCourt, setSomeonePlayCourt] = useState(null);
+  const [someoneType, setSomeoneType] = useState("singles");
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [forceFreeCourtId, setForceFreeCourtId] = useState(null);
   const [forceFreeStep, setForceFreeStep] = useState(1);
@@ -611,21 +612,16 @@ export default function App() {
     }
   }
 
+  // Pure correction: fixes the court's status in Firestore. Deliberately
+  // does not touch the queue — reporting a court as occupied and wanting
+  // to play yourself are two separate intents, kept as two separate actions.
   async function markCourtOccupied() {
     await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
-      status: "occupied", players: t.unknownPlayer || "Unknown player", type: form.type, startedAt: Date.now()
+      status: "occupied", players: t.unknownPlayer || "Unknown player", type: someoneType, startedAt: Date.now()
     });
-    if (!myEntryId) {
-      const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-      await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() - 1 });
-      setMyEntryId(id);
-      localStorage.setItem("myQueueEntry", JSON.stringify({ id, name: form.name.trim(), type: form.type }));
-      notify(t.notifJoined);
-    } else {
-      notify("✅ Court marked as occupied!");
-    }
     setSomeonePlayCourt(null);
     setGeoStatusSomeone("idle");
+    notify("✅ Court marked as occupied!");
   }
 
   async function doForceFreeCourt(courtId) {
@@ -785,23 +781,17 @@ export default function App() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <h3>👀 {t.someoneIsPlayingTitle || "Someone is playing?"}</h3>
             <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:12}}>
-              {t.someoneIsPlayingText || "Mark this court as occupied and join the queue as first in line."}
+              {t.someoneIsPlayingText || "This only fixes the court's status — it won't add you to the queue."}
             </p>
 
             {geoStatusSomeone === "idle" && (
               <>
-                <label>{t.yourName}</label>
-                <input value={form.name} onChange={e => setForm(f => ({...f, name: e.target.value}))}
-                  placeholder={t.namePlaceholder} autoFocus/>
                 <label>{t.matchType}</label>
                 <div className="type-toggle">
-                  <button className={form.type === "singles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "singles"}))}>{t.singlesTime}</button>
-                  <button className={form.type === "doubles" ? "active" : ""} onClick={() => setForm(f => ({...f, type: "doubles"}))}>{t.doublesTime}</button>
+                  <button className={someoneType === "singles" ? "active" : ""} onClick={() => setSomeoneType("singles")}>{t.singlesTime}</button>
+                  <button className={someoneType === "doubles" ? "active" : ""} onClick={() => setSomeoneType("doubles")}>{t.doublesTime}</button>
                 </div>
-                <button className="confirm-btn" disabled={!form.name.trim()} onClick={() => {
-                  if (!form.name.trim()) return;
-                  checkGeo(setGeoStatusSomeone);
-                }}>{t.verifyLocation}</button>
+                <button className="confirm-btn" onClick={() => checkGeo(setGeoStatusSomeone)}>{t.verifyLocation}</button>
               </>
             )}
 
@@ -816,18 +806,14 @@ export default function App() {
             {geoStatusSomeone === "denied" && (
               <div className="geo-status warning">
                 {t.locationDenied}
-                <button className="confirm-btn" style={{marginTop:12}} disabled={!form.name.trim()} onClick={async () => {
-                  await markCourtOccupied();
-                }}>{t.someoneIsPlayingConfirm || "Mark as occupied & join queue →"}</button>
+                <button className="confirm-btn" style={{marginTop:12}} onClick={markCourtOccupied}>{t.someoneIsPlayingConfirm || "Mark as occupied →"}</button>
               </div>
             )}
 
             {geoStatusSomeone === "ok" && (
               <div className="geo-status success">
                 ✅ {t.locationOk}
-                <button className="confirm-btn" style={{marginTop:12}} onClick={async () => {
-                  await markCourtOccupied();
-                }}>{t.someoneIsPlayingConfirm || "Mark as occupied & join queue →"}</button>
+                <button className="confirm-btn" style={{marginTop:12}} onClick={markCourtOccupied}>{t.someoneIsPlayingConfirm || "Mark as occupied →"}</button>
               </div>
             )}
           </div>
@@ -863,6 +849,7 @@ export default function App() {
           </div>
         </div>
       )}
+
 
       <header>
         <div className="logo">🎾</div>
@@ -927,6 +914,7 @@ export default function App() {
                 {isMyTurn && <button className="play-btn" onClick={() => startPlaying(court.id)}>{t.goPlay}</button>}
                 <button className="someone-btn" onClick={() => {
                   setSomeonePlayCourt(court.id);
+                  setSomeoneType("singles");
                   setGeoStatusSomeone("idle");
                 }}>{t.someoneIsPlaying || "Someone is playing →"}</button>
               </div>
