@@ -36,5 +36,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // Audit trail for corrections that aren't real sessions (someone-is-playing,
+    // force-free): anyone can log one, only the admin can read or remove.
+    match /events/{eventId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
   }
 }

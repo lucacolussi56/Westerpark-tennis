@@ -374,6 +374,7 @@ export default function App() {
   const [form, setForm] = useState({ name: "", type: "singles" });
   const [geoStatus, setGeoStatus] = useState("idle");
   const [geoVerifiedAt, setGeoVerifiedAt] = useState(null); // timestamp of last confirmed location, expires below
+  const [geoVerifiedVia, setGeoVerifiedVia] = useState(null); // "gps" | "testmode" — how the current trust was earned, logged onto sessions/events
   const [geoStatusSomeone, setGeoStatusSomeone] = useState("idle");
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -549,12 +550,15 @@ export default function App() {
       endedAt: Date.now(),
       durationMin,
       date: new Date().toISOString().split("T")[0],
+      startMethod: court.startMethod || "unknown",
+      geoAtStart: court.geoAtStart || "unknown",
+      endMethod: "auto-lockout",
     });
     const firstInQueue = queue[0];
     if (firstInQueue) {
       await updateDoc(doc(db, "queue", firstInQueue.id), { notify: Date.now(), notifiedAt: Date.now() });
     }
-    await updateDoc(doc(db, "courts", String(court.id)), { status: "free", players: null, type: null, startedAt: null });
+    await updateDoc(doc(db, "courts", String(court.id)), { status: "free", players: null, type: null, startedAt: null, startMethod: null, geoAtStart: null });
   }
 
   useEffect(() => {
@@ -585,14 +589,14 @@ export default function App() {
     setStatus("checking");
     // In test mode, simulate successful geo check after a short delay
     if (testMode) {
-      setTimeout(() => { setGeoVerifiedAt(Date.now()); setStatus("ok"); }, 800);
+      setTimeout(() => { setGeoVerifiedAt(Date.now()); setGeoVerifiedVia("testmode"); setStatus("ok"); }, 800);
       return;
     }
     if (!navigator.geolocation) { setStatus("denied"); return; }
     navigator.geolocation.getCurrentPosition(
       pos => {
         const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
-        if (dist <= MAX_DISTANCE_METERS) { setGeoVerifiedAt(Date.now()); setStatus("ok"); }
+        if (dist <= MAX_DISTANCE_METERS) { setGeoVerifiedAt(Date.now()); setGeoVerifiedVia("gps"); setStatus("ok"); }
         else setStatus("far");
       },
       () => setStatus("denied"),
@@ -604,7 +608,7 @@ export default function App() {
     if (!form.name.trim()) return;
     if (myEntryId) return; // Already in queue
     const id = `${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
-    await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now() });
+    await setDoc(doc(db, "queue", id), { name: form.name.trim(), type: form.type, joinedAt: Date.now(), geoAtJoin: geoVerifiedVia || "unknown" });
     setMyEntryId(id);
     setScreen("home");
     setGeoStatus("idle");
@@ -625,7 +629,12 @@ export default function App() {
   // to play yourself are two separate intents, kept as two separate actions.
   async function markCourtOccupied() {
     await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
-      status: "occupied", players: t.unknownPlayer || "Unknown player", type: someoneType, startedAt: Date.now()
+      status: "occupied", players: t.unknownPlayer || "Unknown player", type: someoneType, startedAt: Date.now(),
+      startMethod: "correction", geoAtStart: geoVerifiedVia || "unknown"
+    });
+    await addDoc(collection(db, "events"), {
+      type: "someone_is_playing", courtId: someonePlayCourt, matchType: someoneType,
+      geoStatus: geoVerifiedVia || "unknown", timestamp: Date.now()
     });
     setSomeonePlayCourt(null);
     setGeoStatusSomeone("idle");
@@ -633,8 +642,15 @@ export default function App() {
   }
 
   async function doForceFreeCourt(courtId) {
+    const court = courts.find(c => c.id === courtId);
     await updateDoc(doc(db, "courts", String(courtId)), {
-      status: "free", players: null, type: null, startedAt: null
+      status: "free", players: null, type: null, startedAt: null, startMethod: null, geoAtStart: null
+    });
+    await addDoc(collection(db, "events"), {
+      type: "force_free", courtId, geoStatus: geoVerifiedVia || "unknown", timestamp: Date.now(),
+      prevPlayers: court?.players || null, prevType: court?.type || null,
+      prevStartMethod: court?.startMethod || null, prevGeoAtStart: court?.geoAtStart || null,
+      prevDurationSoFarMin: court?.startedAt ? Math.floor((Date.now() - court.startedAt) / 60000) : null
     });
     notify("✅ Court freed.");
   }
@@ -642,7 +658,8 @@ export default function App() {
   async function joinAndPlay(courtId) {
     if (!form.name.trim()) return;
     await updateDoc(doc(db, "courts", String(courtId)), {
-      status: "occupied", players: form.name.trim(), type: form.type, startedAt: Date.now()
+      status: "occupied", players: form.name.trim(), type: form.type, startedAt: Date.now(),
+      startMethod: "direct", geoAtStart: geoVerifiedVia || "unknown"
     });
     const playing = { courtId, startedAt: Date.now(), type: form.type, playerName: form.name.trim() };
     setMyPlaying(playing);
@@ -657,7 +674,8 @@ export default function App() {
     const myEntry = queue.find(q => q.id === myEntryId);
     if (!myEntry) return;
     await updateDoc(doc(db, "courts", String(courtId)), {
-      status: "occupied", players: myEntry.name, type: myEntry.type, startedAt: Date.now()
+      status: "occupied", players: myEntry.name, type: myEntry.type, startedAt: Date.now(),
+      startMethod: "claim-overtime", geoAtStart: myEntry.geoAtJoin || "unknown"
     });
     await deleteDoc(doc(db, "queue", myEntryId));
     setMyEntryId(null);
@@ -680,7 +698,10 @@ export default function App() {
   async function startPlaying(courtId) {
     const myEntry = queue.find(q => q.id === myEntryId);
     if (!myEntry) return;
-    await updateDoc(doc(db, "courts", String(courtId)), { status: "occupied", players: myEntry.name, type: myEntry.type, startedAt: Date.now() });
+    await updateDoc(doc(db, "courts", String(courtId)), {
+      status: "occupied", players: myEntry.name, type: myEntry.type, startedAt: Date.now(),
+      startMethod: "queue", geoAtStart: myEntry.geoAtJoin || "unknown"
+    });
     await deleteDoc(doc(db, "queue", myEntryId));
     setMyEntryId(null);
     const playing = { courtId, startedAt: Date.now(), type: myEntry.type, playerName: myEntry.name };
@@ -708,6 +729,9 @@ export default function App() {
         endedAt: Date.now(),
         durationMin,
         date: new Date().toISOString().split("T")[0],
+        startMethod: court?.startMethod || "unknown",
+        geoAtStart: court?.geoAtStart || "unknown",
+        endMethod: "done",
       });
     }
     // Find first person in queue and set a notification trigger
@@ -715,7 +739,7 @@ export default function App() {
     if (firstInQueue) {
       await updateDoc(doc(db, "queue", firstInQueue.id), { notify: Date.now(), notifiedAt: Date.now() });
     }
-    await updateDoc(doc(db, "courts", String(courtId)), { status: "free", players: null, type: null, startedAt: null });
+    await updateDoc(doc(db, "courts", String(courtId)), { status: "free", players: null, type: null, startedAt: null, startMethod: null, geoAtStart: null });
     setMyPlaying(null);
     localStorage.removeItem("myPlaying");
     setScreen("home");

@@ -8,6 +8,18 @@ import {
 } from "firebase/auth";
 import { db, auth } from "./firebase";
 
+const GEO_LABELS = { gps: "📍 GPS", testmode: "🧪 Test mode", admin: "👤 Admin", unknown: "❔ Unknown" };
+const START_LABELS = {
+  direct: "Walked up to a free court", queue: "Reached front of queue",
+  "claim-overtime": "Claimed an overtime court", admin: "Added by admin",
+  correction: "Marked by \"someone is playing\"", unknown: "Unknown",
+};
+const END_LABELS = { done: "Player pressed Done", "auto-lockout": "Auto-lockout", admin: "Ended by admin", unknown: "Unknown" };
+
+function geoLabel(v) { return GEO_LABELS[v] || GEO_LABELS.unknown; }
+function startLabel(v) { return START_LABELS[v] || START_LABELS.unknown; }
+function endLabel(v) { return END_LABELS[v] || END_LABELS.unknown; }
+
 function StarDisplay({ rating }) {
   return (
     <span className="a-stars">
@@ -29,7 +41,8 @@ function AddToCourtForm({ db, courtId, onClose }) {
     setAdding(true);
     const startedAt = Date.now() - (minsAgo * 60000);
     await updateDoc(doc(db, "courts", String(courtId)), {
-      status: "occupied", players: name.trim(), type, startedAt
+      status: "occupied", players: name.trim(), type, startedAt,
+      startMethod: "admin", geoAtStart: "admin"
     });
     setAdding(false);
     onClose();
@@ -77,7 +90,8 @@ function CourtAdminItem({ court, db, onFree }) {
     setAdding(true);
     const startedAt = Date.now() - minsAgo * 60 * 1000;
     await updateDoc(doc(db, "courts", String(court.id)), {
-      status: "occupied", players: name.trim(), type, startedAt
+      status: "occupied", players: name.trim(), type, startedAt,
+      startMethod: "admin", geoAtStart: "admin"
     });
     setName(""); setMinsAgo(0); setAdding(false);
   }
@@ -263,6 +277,7 @@ export default function Admin() {
   const [queue, setQueue] = useState([]);
   const [stats, setStats] = useState({ total: 0, avgRating: 0 });
   const [sessions, setSessions] = useState([]);
+  const [events, setEvents] = useState([]);
   const [period, setPeriod] = useState(7);
   const [settings, setSettings] = useState(null);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -327,6 +342,11 @@ export default function Admin() {
       }
     );
 
+    const unsubEvents = onSnapshot(
+      query(collection(db, "events"), orderBy("timestamp", "desc")),
+      snap => { setEvents(snap.docs.map(d => ({ id: d.id, ...d.data() }))); }
+    );
+
     const unsubSettings = onSnapshot(doc(db, "settings", "geo"), snap => {
       if (snap.exists()) setSettings(snap.data());
       else setSettings({
@@ -336,7 +356,7 @@ export default function Admin() {
       });
     });
 
-    return () => { unsubFeedback(); unsubProblems(); unsubCourts(); unsubQueue(); unsubSessions(); unsubSettings(); };
+    return () => { unsubFeedback(); unsubProblems(); unsubCourts(); unsubQueue(); unsubSessions(); unsubEvents(); unsubSettings(); };
   }, [authed]);
 
   async function deleteFeedback(id) {
@@ -352,8 +372,24 @@ export default function Admin() {
   }
 
   async function freeCourt(courtId) {
+    const court = courts.find(c => c.id === courtId);
+    if (court?.startedAt) {
+      const durationMin = Math.floor((Date.now() - court.startedAt) / 60000);
+      await addDoc(collection(db, "sessions"), {
+        name: court.players || "Unknown",
+        type: court.type,
+        courtId,
+        startedAt: court.startedAt,
+        endedAt: Date.now(),
+        durationMin,
+        date: new Date().toISOString().split("T")[0],
+        startMethod: court.startMethod || "unknown",
+        geoAtStart: court.geoAtStart || "unknown",
+        endMethod: "admin",
+      });
+    }
     await updateDoc(doc(db, "courts", String(courtId)), {
-      status: "free", players: null, type: null, startedAt: null
+      status: "free", players: null, type: null, startedAt: null, startMethod: null, geoAtStart: null
     });
   }
 
@@ -411,9 +447,9 @@ export default function Admin() {
       </header>
 
       <div className="a-tabs">
-        {["overview", "feedback", "problems", "courts", "leaderboard", "settings"].map(t => (
+        {["overview", "feedback", "problems", "courts", "leaderboard", "activity", "settings"].map(t => (
           <button key={t} className={`a-tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : t === "problems" ? "🚨 Problems" : t === "courts" ? "🎾 Live" : t === "leaderboard" ? "🏆 Leaderboard" : "⚙️ Settings"}
+            {t === "overview" ? "📊 Overview" : t === "feedback" ? "💬 Feedback" : t === "problems" ? "🚨 Problems" : t === "courts" ? "🎾 Live" : t === "leaderboard" ? "🏆 Leaderboard" : t === "activity" ? "🕵️ Activity" : "⚙️ Settings"}
           </button>
         ))}
       </div>
@@ -701,11 +737,46 @@ export default function Admin() {
                 <div className="a-session-meta">
                   {s.type} · Court {s.courtId} · {s.durationMin} min · {new Date(s.endedAt).toLocaleDateString()} {new Date(s.endedAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}
                 </div>
+                {(s.startMethod || s.endMethod) && (
+                  <div className="a-session-meta" style={{marginTop:2,opacity:0.7,fontSize:11}}>
+                    {startLabel(s.startMethod)} ({geoLabel(s.geoAtStart)}) → {endLabel(s.endMethod)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         );
       })()}
+
+      {tab === "activity" && (
+        <div className="a-content">
+          <h3 className="a-section-title">🕵️ Recent corrections</h3>
+          <div className="a-settings-sublabel" style={{marginBottom:10}}>
+            "Someone is playing" and force-free (✕) don't create sessions — they're corrections to stale court state, logged here instead.
+          </div>
+          {events.length === 0 && <div className="a-empty">No corrections logged yet</div>}
+          {events.map(ev => (
+            <div key={ev.id} className="a-session-item">
+              <div className="a-session-name">
+                {ev.type === "someone_is_playing" ? "👀 Marked as occupied" : "✕ Force-freed"} · Court {ev.courtId}
+              </div>
+              <div className="a-session-meta">
+                {new Date(ev.timestamp).toLocaleDateString()} {new Date(ev.timestamp).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})} · {geoLabel(ev.geoStatus)}
+              </div>
+              {ev.type === "force_free" && ev.prevPlayers && (
+                <div className="a-session-meta" style={{marginTop:2,opacity:0.7,fontSize:11}}>
+                  Cleared: {ev.prevPlayers} · {ev.prevType} · {ev.prevDurationSoFarMin != null ? `${ev.prevDurationSoFarMin} min in` : ""} · started via {startLabel(ev.prevStartMethod)} ({geoLabel(ev.prevGeoAtStart)})
+                </div>
+              )}
+              {ev.type === "someone_is_playing" && (
+                <div className="a-session-meta" style={{marginTop:2,opacity:0.7,fontSize:11}}>
+                  Match type: {ev.matchType}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {tab === "settings" && <SettingsTab db={db} settings={settings} setSavingSettings={setSavingSettings} savingSettings={savingSettings}/>}
 
