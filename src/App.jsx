@@ -588,7 +588,7 @@ export default function App() {
       setTimeout(() => { setGeoVerifiedAt(Date.now()); setStatus("ok"); }, 800);
       return;
     }
-    if (!navigator.geolocation) { setGeoVerifiedAt(Date.now()); setStatus("ok"); return; }
+    if (!navigator.geolocation) { setStatus("denied"); return; }
     navigator.geolocation.getCurrentPosition(
       pos => {
         const dist = getDistanceMeters(pos.coords.latitude, pos.coords.longitude, GEO_COORDS.lat, GEO_COORDS.lng);
@@ -812,9 +812,9 @@ export default function App() {
             )}
 
             {geoStatusSomeone === "denied" && (
-              <div className="geo-status warning">
+              <div className="geo-status error">
                 {t.locationDenied}
-                <button className="confirm-btn" style={{marginTop:12}} onClick={markCourtOccupied}>{t.someoneIsPlayingConfirm || "Mark as occupied →"}</button>
+                <button className="confirm-btn" style={{marginTop:12}} onClick={() => checkGeo(setGeoStatusSomeone)}>{t.retryLocation || "🔄 Try again"}</button>
               </div>
             )}
 
@@ -857,7 +857,13 @@ export default function App() {
                 <button className="confirm-btn" style={{marginTop:12}} onClick={() => checkGeo(setForceFreeGeo)}>{t.retryLocation || "🔄 Try again"}</button>
               </div>
             )}
-            {(forceFreeGeo === "ok" || forceFreeGeo === "denied") && (
+            {forceFreeGeo === "denied" && (
+              <div className="geo-status error">
+                {t.locationDenied}
+                <button className="confirm-btn" style={{marginTop:12}} onClick={() => checkGeo(setForceFreeGeo)}>{t.retryLocation || "🔄 Try again"}</button>
+              </div>
+            )}
+            {forceFreeGeo === "ok" && (
               <>
                 <p style={{color:"var(--text-muted)",fontSize:14,lineHeight:1.6,marginBottom:20,whiteSpace:"pre-line"}}>
                   {forceFreeStep === 1 ? t.forceFreeConfirm1 : t.forceFreeConfirm2}
@@ -996,19 +1002,9 @@ export default function App() {
               </div>
             )}
             {geoStatus === "denied" && (
-              <div className="geo-status warning">
+              <div className="geo-status error">
                 {t.locationDenied}
-                {canPlayNow ? (
-                  <div style={{display:"flex", gap:8, marginTop:12}}>
-                    {freeCourts.map(c => (
-                      <button key={c.id} className="confirm-btn" style={{flex:1}} disabled={!form.name.trim()} onClick={() => joinAndPlay(c.id)}>
-                        {c.id === 1 ? (t.court1Name || "Left Court") : (t.court2Name || "Right Court")}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <button className="confirm-btn" style={{marginTop:12}} onClick={() => setGeoStatus("notifAsk")} disabled={!form.name.trim()}>{t.confirmJoin}</button>
-                )}
+                <button className="confirm-btn" style={{marginTop:12}} onClick={() => checkGeo(setGeoStatus)}>{t.retryLocation || "🔄 Try again"}</button>
               </div>
             )}
             {geoStatus === "ok" && (

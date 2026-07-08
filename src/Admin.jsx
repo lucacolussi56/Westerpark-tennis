@@ -590,9 +590,9 @@ export default function Admin() {
                 const h = new Date(s.endedAt).getHours();
                 hourCounts[h]++;
               });
-              const peakHour = hourCounts.indexOf(Math.max(...hourCounts));
               const relevantHours = hourCounts.slice(6, 24); // 6am-midnight
               const maxHour = Math.max(...relevantHours, 1);
+              const peakHour = 6 + relevantHours.indexOf(Math.max(...relevantHours));
               return (
                 <>
                   {filtered.length > 0 && (
