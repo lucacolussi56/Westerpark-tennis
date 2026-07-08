@@ -372,6 +372,7 @@ export default function App() {
 
   const [courts, setCourts] = useState([]);
   const [queue, setQueue] = useState([]);
+  const [, forceTick] = useState(0); // re-render periodically so time-based UI (e.g. claim-court banner) reflects elapsed time even with no other state change
   const [myEntryId, setMyEntryId] = useState(null);
   const [myPlaying, setMyPlaying] = useState(null);
   const [screen, setScreen] = useState("home");
@@ -518,6 +519,14 @@ export default function App() {
     const freeCourts = courts.filter(c => c.status === "free");
     if (myEntry.position === 1 && freeCourts.length > 0) notify(t.notifYourTurn);
   }, [queue, courts, myEntryId]);
+
+  // Periodic re-render tick — the claim-overtime-court banner reads Date.now() at
+  // render time but nothing else forces a re-render while it's true, since the
+  // other intervals below only touch state when they actually write to Firestore.
+  useEffect(() => {
+    const interval = setInterval(() => forceTick(n => n + 1), 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Queue claim timeout — runs every 10 seconds
   useEffect(() => {
