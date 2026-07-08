@@ -10,6 +10,10 @@ import { translations } from "./i18n";
 let GEO_COORDS = { lat: 52.387583, lng: 4.875667 };
 let MAX_DISTANCE_METERS = 250;
 const COURTS = [1, 2];
+// Stored as a fixed, language-neutral sentinel so it renders correctly for every
+// viewer regardless of which locale was active when it got written — translate
+// with t.unknownPlayer at display time, never store the translated string itself.
+const UNKNOWN_PLAYER_NAME = "Unknown player";
 const OVERTIME_CLAIM_MIN = 5;   // minuti di overtime prima che il primo in fila possa liberare il campo
 const GEO_TRUST_MS = 60 * 60 * 1000; // how long a confirmed location stays trusted before re-asking
 // Google Apps Script Web App URL (script.google.com) — sends an urgent email on new problem reports. See setup notes.
@@ -71,7 +75,7 @@ function CourtTimer({ court, t, singlesDuration, doublesDuration }) {
           {court.type === "singles" ? t.singles : t.doubles}
         </span>
       </div>
-      <div className="court-players">{court.players}</div>
+      <div className="court-players">{court.players === UNKNOWN_PLAYER_NAME ? (t.unknownPlayer || court.players) : court.players}</div>
       <div className="timer-ring-container">
         <svg width="100" height="100" viewBox="0 0 100 100">
           <circle cx="50" cy="50" r="38" fill="none" style={{stroke: "var(--border)"}} strokeWidth="6"/>
@@ -543,7 +547,7 @@ export default function App() {
   async function autoFreeCourt(court) {
     const durationMin = Math.floor((Date.now() - court.startedAt) / 60000);
     await addDoc(collection(db, "sessions"), {
-      name: court.players || "Unknown",
+      name: court.players || UNKNOWN_PLAYER_NAME,
       type: court.type,
       courtId: court.id,
       startedAt: court.startedAt,
@@ -629,7 +633,7 @@ export default function App() {
   // to play yourself are two separate intents, kept as two separate actions.
   async function markCourtOccupied() {
     await updateDoc(doc(db, "courts", String(someonePlayCourt)), {
-      status: "occupied", players: t.unknownPlayer || "Unknown player", type: someoneType, startedAt: Date.now(),
+      status: "occupied", players: UNKNOWN_PLAYER_NAME, type: someoneType, startedAt: Date.now(),
       startMethod: "correction", geoAtStart: geoVerifiedVia || "unknown"
     });
     await addDoc(collection(db, "events"), {
@@ -720,7 +724,7 @@ export default function App() {
       const saved = localStorage.getItem("myQueueEntry");
       const savedName = saved ? JSON.parse(saved).name : null;
       const court = courts.find(c => c.id === courtId);
-      const playerName = myPlaying.playerName || savedName || court?.players || "Unknown";
+      const playerName = myPlaying.playerName || savedName || court?.players || UNKNOWN_PLAYER_NAME;
       await addDoc(collection(db, "sessions"), {
         name: playerName,
         type: myPlaying.type,
